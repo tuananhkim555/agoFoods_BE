@@ -1,0 +1,336 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User Module
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  phone         String    @unique
+  fullName      String
+  avatar        String?
+  role          Role      @default(CUSTOMER)
+  isActive      Boolean   @default(false)
+  balance       Float     @default(0)
+  transactions  Transaction[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  gender        Gender
+  birthday      String?
+  status        Boolean   @default(true)
+
+  // Relations
+  store         Store?    
+  shipper       Shipper?  
+  orders        Order[]   
+  cart          Cart?     
+  notifications Notification[]
+  chats         Chat[]
+  ratings       Rating[]
+  comments      Comment[]
+  deliveries    Delivery[]
+}
+
+enum Role {
+  ADMIN
+  CUSTOMER
+  STORE
+  SHIPPER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+// Store Module
+model Store {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id])
+  name          String
+  address       String
+  idCard        String    
+  birthDate     DateTime
+  hometown      String
+  isVerified    Boolean   @default(false)
+  freeListings  Int       @default(5)
+  openTime      DateTime
+  closeTime     DateTime
+  products      Product[]
+  orders        Order[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  foods         Food[]
+  ratings       Rating[]  @relation("StoreRating")
+}
+
+// Food Module
+model Food {
+  id          String      @id @default(uuid())
+  storeId     String
+  store       Store       @relation(fields: [storeId], references: [id])
+  name        String
+  price       Float
+  description String?
+  categoryId  String
+  category    Category    @relation(fields: [categoryId], references: [id])
+  tags        Tag[]
+  status      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  images      FoodImage[]
+  cartItems   CartItem[]
+  orderItems  OrderItem[] @relation("FoodOrderItem")
+  ratings     Rating[]    @relation("FoodRating")
+  comments    Comment[]
+}
+
+// New model for food images
+model FoodImage {
+  id        String   @id @default(uuid())
+  foodId    String
+  food      Food     @relation(fields: [foodId], references: [id])
+  url       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Cart Module
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id])
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id])
+  foodId    String
+  food      Food     @relation(fields: [foodId], references: [id])
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Order Module
+model Order {
+  id         String      @id @default(uuid())
+  customerId String
+  customer   User        @relation(fields: [customerId], references: [id])
+  storeId    String
+  store      Store       @relation(fields: [storeId], references: [id])
+  items      OrderItem[]
+  status     OrderStatus @default(PENDING)
+  total      Float
+  delivery   Delivery?
+  rating     Rating?
+  payment    Payment?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  shipper    Shipper?    @relation("ShipperOrder", fields: [shipperId], references: [id])
+  shipperId  String?
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  PICKED_UP
+  DELIVERING
+  DELIVERED
+  CANCELLED
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  foodId    String
+  food      Food    @relation("FoodOrderItem", fields: [foodId], references: [id])
+  quantity  Int
+  price     Float
+}
+
+// Shipper Module
+model Shipper {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id])
+  vehicleType   String
+  licensePlate  String
+  status        Boolean   @default(true)
+  latitude      Float?
+  longitude     Float?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  orders        Order[]   @relation("ShipperOrder")
+}
+
+// Notification Module
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  content   String
+  isRead    Boolean  @default(false)
+  type      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Chat Module
+model Chat {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  messages  Message[] @relation("ChatMessage")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  chatId     String
+  chat       Chat     @relation("ChatMessage", fields: [chatId], references: [id])
+  senderId   String
+  receiverId String  
+  content    String
+  createdAt  DateTime @default(now())
+}
+
+// Payment Module
+model Payment {
+  id            String   @id @default(uuid())
+  orderId       String   @unique
+  order         Order    @relation(fields: [orderId], references: [id])
+  amount        Float
+  provider      String   // VNPAY, MOMO
+  status        Boolean  @default(false)
+  transactionId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Rating & Comment
+model Rating {
+  id        String   @id @default(uuid())
+  orderId   String   @unique
+  order     Order    @relation(fields: [orderId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  storeId   String
+  store     Store    @relation("StoreRating", fields: [storeId], references: [id])
+  foodId    String
+  food      Food     @relation("FoodRating", fields: [foodId], references: [id])
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  foodId    String
+  food      Food     @relation(fields: [foodId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          String    @id @default(uuid())
+  storeId     String
+  store       Store     @relation(fields: [storeId], references: [id])
+  name        String
+  description String?
+  price       Float
+  imageUrls   String    @db.Text // Store as JSON string
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id])
+  tags        Tag[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String
+  products  Product[]
+  foods     Food[]
+}
+
+model Tag {
+  id        String    @id @default(uuid())
+  name      String
+  products  Product[]
+  foods     Food[]
+}
+
+model Delivery {
+  id        String    @id @default(uuid())
+  orderId   String    @unique
+  order     Order     @relation(fields: [orderId], references: [id])
+  shipperId String
+  shipper   User      @relation(fields: [shipperId], references: [id])
+  status    String
+  location  String?   // Current location coordinates
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// Transaction Model
+model Transaction {
+  id            String          @id @default(uuid())
+  userId        String
+  user          User            @relation(fields: [userId], references: [id])
+  amount        Float
+  type          TransactionType
+  status        TransactionStatus @default(PENDING)
+  
+  // Thông tin chuyển khoản
+  bankName      String?         // Tên ngân hàng
+  accountNumber String?         // Số tài khoản nhận tiền
+  accountName   String?         // Tên chủ tài khoản
+  transferCode  String?         // Mã giao dịch ngân hàng
+  content       String?         // Nội dung chuyển khoản (VD: "AGO ST001")
+  driverCode    String?         // Mã tài xế (VD: "ST001")
+  
+  proofImage    String?         // URL ảnh chụp màn hình chuyển khoản
+  adminId       String?         // ID admin xử lý
+  note          String?         // Ghi chú của admin
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+enum TransactionType {
+  DEPOSIT      // Nạp tiền
+  WITHDRAWAL   // Rút tiền
+  EARNING      // Thu nhập từ đơn hàng
+  COMMISSION   // Chiết khấu
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
