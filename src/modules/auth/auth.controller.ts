@@ -6,6 +6,7 @@ import { ApiBody, ApiResponse } from '@nestjs/swagger';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 import { UseGuards } from '@nestjs/common';
 import { ApiKeyGuard } from 'src/common/guards/api-key.guard';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @Controller('api/auth')
 export class AuthController {
@@ -20,6 +21,7 @@ export class AuthController {
     status: 200,
     description: 'Success',
   })
+  @Public() // cho phép truy cập mà không cần xác thực
   async register(
     @Body() registerDto: RegisterDto,
     @Headers('x-app-source') appSource: string
@@ -36,13 +38,16 @@ export class AuthController {
     status: 200,
     description: 'Success',
   })
+  @Public() // cho phép truy cập mà không cần xác thực
   @ResponseMessage(`Đăng nhập thành công`)
   login(@Body() loginDto: LoginDto): Promise<any> {
-    return this.authService.login(loginDto);
+    return this.authService.login({ user: loginDto });
   }
 
+  // Đặt quyền admin
   @Patch('set-admin/:userId')
   @UseGuards(ApiKeyGuard)
+  @Public() // cho phép truy cập mà không cần xác thực
   async setAdminRole(
     @Param('userId') userId: string,
     @Headers('x-api-key') apiKey: string

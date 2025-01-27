@@ -10,9 +10,9 @@ export const JWT_CONFIG = {
 };
 
 export const CLOUDINARY_CONFIG = {
-  CLOUD_NAME: 'ddaofgdke',
-  API_KEY: '765745499357567',
-  API_SECRET: 'JwGX3gxUMrKbPAH6Ts0-BJsrBpQ',
+  CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+  API_KEY: process.env.CLOUDINARY_API_KEY,
+  API_SECRET: process.env.CLOUDINARY_API_SECRET,
 };
 
 export const API_CONFIG = {

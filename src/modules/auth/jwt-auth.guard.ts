@@ -10,6 +10,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { JsonWebTokenError, TokenExpiredError } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
+import { Role } from '@prisma/client';
 import { IS_PUBLIC_KEY } from 'src/common/decorators/public.decorator';
 
 @Injectable()
@@ -33,14 +34,16 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     console.log('JWT Guard Error:', err);
     console.log('JWT Guard User:', user);
     console.log('JWT Guard Info:', info);
+    
     // Kiểm tra nếu có lỗi hoặc không có user
     if (err || !user) {
       throw new HttpException({
         statusCode: HttpStatus.UNAUTHORIZED,
-        message: 'Vui lòng nhâp token để thực hiện chức năng này',
+        message: 'Vui lòng nhâp token hoặc token không hợp lệ',
         error: info?.message || 'Token validation failed'
       }, HttpStatus.UNAUTHORIZED);
     }
+
 
     if (info instanceof TokenExpiredError) throw new ForbiddenException({statusCode: 403, message: 'Token hết hạn'});
     if (info instanceof JsonWebTokenError) throw new UnauthorizedException({statusCode: 401, message: 'Token không hợp lệ'});

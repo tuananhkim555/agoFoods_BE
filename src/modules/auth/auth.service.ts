@@ -8,6 +8,9 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
+  setAdminRole(userId: string, apiKey: string) {
+    throw new Error('Method not implemented.');
+  }
   constructor(
     public prisma: PrismaService,
     private jwtService: JwtService,
@@ -128,12 +131,15 @@ export class AuthService {
   }
 
   // Đăng nhập
-  login = async (data: { email: string; password: string }): Promise<any> => {
+  login = async (data: { user: any }): Promise<any> => {
     // bước 1: kiểm tra xem tài khoản này có tồn tại không?
     const user = await this.prisma.user.findUnique({
       where: {
-        email: data.email,
-      },
+        id: data.user.id,
+        fullName: data.user.fullName,
+        email: data.user.email,
+        role: data.user.role
+      }
     });
     if (!user) {
       throw new HttpException(
@@ -143,7 +149,7 @@ export class AuthService {
     }
 
     // bước 2: kiểm tra mật khẩu
-    const verify = await compare(data.password, user.password);
+    const verify = await compare(data.user.password, user.password);
 
     if (!verify) {
       throw new HttpException(
@@ -163,7 +169,7 @@ export class AuthService {
       secret: process.env.REFRESH_TOKEN_EXPIRES,
       expiresIn: '7d',
     });
-    return { accessToken, refreshToken };
+    return { accessToken: this.jwtService.sign(payload), refreshToken };
   };
 
   async refreshToken(refreshToken: string) {
@@ -185,34 +191,5 @@ export class AuthService {
   async logout(userId: string) {
     // Implement any necessary cleanup
     return { success: true };
-  }
-
-  async setAdminRole(userId: string, apiKey: string) {
-    // Verify API key
-    const validApiKey = this.configService.get('ADMIN_API_KEY');
-    if (apiKey !== validApiKey) {
-      throw new HttpException({
-        statusCode: HttpStatus.FORBIDDEN,
-        message: 'Invalid API key',
-        error: 'Forbidden'
-      }, HttpStatus.FORBIDDEN);
-    }
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId }
-    });
-
-    if (!user) {
-      throw new HttpException({
-        statusCode: HttpStatus.NOT_FOUND,
-        message: 'Người dùng không tồn tại',
-        error: 'Not Found'
-      }, HttpStatus.NOT_FOUND);
-    }
-
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: { role: Role.ADMIN }
-    });
   }
 }

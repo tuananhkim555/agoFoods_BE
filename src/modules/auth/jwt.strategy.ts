@@ -1,39 +1,39 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(
-    private configService: ConfigService,
-    private prisma: PrismaService,
-  ) {
+  constructor(private prisma: PrismaService) {
     super({
-      jwtFromRequest: ExtractJwt.fromHeader('accesstoken'),
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('ACCESS_TOKEN_SECRET'),
+      secretOrKey: process.env.ACCESS_TOKEN_SECRET,
     });
   }
 
   async validate(payload: any) {
-
-    if (!payload.id) {
-      throw new UnauthorizedException('Invalid token payload');
-    }
-
+    // Lấy thông tin user từ database dựa vào id trong token
     const user = await this.prisma.user.findUnique({
-      where: { 
-        id: payload.id
-      },
+      where: { id: payload.id }
     });
 
-    if (!user) {
-      throw new UnauthorizedException('User not found');
+    if (!user || !user.status) {
+      throw new UnauthorizedException('Tài khoản không tồn tại hoặc đã bị khóa');
     }
 
-    const { password, ...result } = user;
-    return result;
+    // Log để debug
+    console.log('JWT Payload:', payload);
+    console.log('Found User:', user);
+
+    // Trả về user object đầy đủ
+    return {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      status: user.status
+    };
   }
 }

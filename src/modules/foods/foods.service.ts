@@ -2,25 +2,22 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/common/prisma/prisma.service';
 import { CreateFoodDto } from './dtos/create-food.dto';
 import { UpdateFoodDto } from './dtos/update-food.dto';
-import { UploadService } from 'src/common/services/upload.service';
 
 @Injectable()
 export class FoodsService {
   constructor(
     private prisma: PrismaService,
-    private uploadService: UploadService
   ) {}
  
   // TODO: Add validation
   async createFood(createFoodDto: CreateFoodDto, file: Express.Multer.File, storeId: string) {
-    const imageUrl = await this.uploadService.uploadImage(file, 'foods');
 
     return this.prisma.food.create({
       data: {
         ...createFoodDto,
         storeId,
         images: {
-          create: [{ url: imageUrl as string }]
+          create: [{ url: file.path as string }]
         }
       },
       include: {

@@ -43,45 +43,44 @@ export class CreateUserDto {
     role: Role;
   }
 
-export class UpdateUserDto {
+  export class UpdateUserDto {
     @ApiProperty()
-    @IsNotEmpty()
-    id: string;
-
-    @ApiProperty()
-    @IsNotEmpty()
-    name: string;
-    
-    @ApiProperty()
-    @Matches(/^\d+$/)
-    phone: string;
-
-    @ApiProperty()
-    @IsEmail()
+    @IsEmail({}, { message: 'Email không hợp lệ' })
+    @IsNotEmpty({ message: 'Email không được để trống' })
     email: string;
   
     @ApiProperty()
-    @IsNotEmpty()
-    @MinLength(6)
+    @IsString({ message: 'Mật khẩu phải là chuỗi' })
+    @MinLength(6, { message: 'Mật khẩu phải có ít nhất 6 ký tự' })
     password: string;
   
     @ApiProperty()
-    @IsNotEmpty()
+    @IsNotEmpty({ message: 'Số điện thoại không được để trống' })
+    @Matches(/(84|0[3|5|7|8|9])+([0-9]{8})\b/, {
+      message: 'Số điện thoại không đúng định dạng'
+    })
+    phone: string;
+  
+    @ApiProperty()
+    @IsString({ message: 'Họ tên phải là chuỗi' })
+    @IsNotEmpty({ message: 'Họ tên không được để trống' })
+    fullName: string;
+  
+    @ApiProperty({ enum: Gender, enumName: 'Gender' })
+    @IsEnum(Gender, {
+      message: 'Giới tính phải là một trong các giá trị: MALE, FEMALE, OTHER'
+    })
+    gender: Gender;
+  
+    @ApiProperty()
+    @IsString()
+    @IsNotEmpty({ message: 'Ngày sinh không được để trống' })
     birthday: string;
   
-    @ApiPropertyOptional()
-    @IsOptional()
-    gender: string;
-  
-    @ApiPropertyOptional()
-    @IsOptional() // Make role optional
-    role?: string; // Use optional chaining
-  
-    @IsNotEmpty()
-    status: number;
-  
-}
-
+    @ApiProperty()
+    @IsEnum(Role)
+    role: Role;
+  }
 // filter search
 
 export class UserFilterDto {
