@@ -1,5 +1,4 @@
 import { Controller, Post, Body, Headers, Patch, Param } from '@nestjs/common';
-import { User } from '@prisma/client';
 import {  LoginDto, RegisterDto } from './dto/auth.dto';
 import { AuthService } from './auth.service';
 import { ApiBody, ApiResponse } from '@nestjs/swagger';
@@ -7,6 +6,11 @@ import { ResponseMessage } from 'src/common/decorators/response-message.decorato
 import { UseGuards } from '@nestjs/common';
 import { ApiKeyGuard } from 'src/common/guards/api-key.guard';
 import { Public } from 'src/common/decorators/public.decorator';
+
+
+// ApiKeyGuard: Kiểm tra API key cho các endpoint cần bảo mật đặc biệt
+// JwtAuthGuard: Xác thực JWT token, kiểm tra user đã đăng nhập
+// RolesGuard: Kiểm tra phân quyền (ADMIN và user thường)
 
 @Controller('api/auth')
 export class AuthController {

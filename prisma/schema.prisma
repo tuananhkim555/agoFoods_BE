@@ -12,27 +12,27 @@ datasource db {
 
 // User Module
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  password      String
-  phone         String    @unique
-  fullName      String
-  avatar        String?
-  role          Role      @default(CUSTOMER)
-  isActive      Boolean   @default(false)
-  balance       Float     @default(0)
-  transactions  Transaction[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  gender        Gender
-  birthday      String?
-  status        Boolean   @default(true)
+  id        String   @id
+  email     String   @unique
+  password  String
+  phone     String   @unique
+  fullName  String
+  avatar    String?
+  role      Role     @default(CUSTOMER)
+  isActive  Boolean  @default(false)
+  balance   Float    @default(0)
+  gender    Gender
+  birthday  String?
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  store         Store?    
-  shipper       Shipper?  
-  orders        Order[]   
-  cart          Cart?     
+  restaurants Restaurant[] @relation("UserRestaurants")
+  shipper       Shipper?
+  transactions  Transaction[]
+  orders        Order[] 
+  cart          Cart?
   notifications Notification[]
   chats         Chat[]
   ratings       Rating[]
@@ -43,7 +43,7 @@ model User {
 enum Role {
   ADMIN
   CUSTOMER
-  STORE
+  RESTAURANTS
   SHIPPER
 }
 
@@ -53,62 +53,147 @@ enum Gender {
   OTHER
 }
 
-// Store Module
-model Store {
-  id            String    @id @default(uuid())
-  userId        String    @unique
-  user          User      @relation(fields: [userId], references: [id])
-  name          String
-  address       String
-  idCard        String    
-  birthDate     DateTime
-  hometown      String
-  isVerified    Boolean   @default(false)
-  freeListings  Int       @default(5)
-  openTime      DateTime
-  closeTime     DateTime
-  products      Product[]
-  orders        Order[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  foods         Food[]
-  ratings       Rating[]  @relation("StoreRating")
+// Model Restaurant 
+model Restaurant {
+  id                  String   @id @default(uuid())
+  title               String
+  time                String
+  imageUrl            String
+  userId              String   @unique
+  user                User     @relation("UserRestaurants", fields: [userId], references: [id], onDelete: Cascade)
+  code                String
+  logoUrl             String
+  rating              Float    @default(0)
+  ratingCount         Int      @default(0)
+  description         String?
+  category            String?
+  pickup              Boolean  @default(true)
+  delivery            Boolean  @default(true)
+  isActive            Boolean  @default(true)
+  verification        String   @default("Pending")
+  verificationMessage String?  @default("Your restaurant is being verified")
+  isVerified          Boolean  @default(false)
+  isAvailable         Boolean  @default(true)
+  coords              Json
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  version             Int      @default(0) @map("_v")
+
+  products Product[]
+  orders   Order[]
+  foods    Food[]
+  ratings  Rating[]  @relation("RestaurantRating")
+
+  @@index([userId])
 }
+
+model Categories {
+  id        String   @id @default(cuid())
+  title     String
+  value     String   @unique
+  imageUrl  String
+  version   Int      @default(0) @map("_v")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+  foods    Food[]
+}
+
 
 // Food Module
 model Food {
-  id          String      @id @default(uuid())
-  storeId     String
-  store       Store       @relation(fields: [storeId], references: [id])
-  name        String
-  price       Float
-  description String?
-  categoryId  String
-  category    Category    @relation(fields: [categoryId], references: [id])
-  tags        Tag[]
-  status      Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
+  id           String      @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  title        String
+  time         String
+  price        Float
+  description  String?
+  categoryId   String
+  category     Categories  @relation(fields: [categoryId], references: [id])
+  foodTags     Json?      @default("[]")
+  foodType     Json?      @default("[]")
+  additives    Json?      @default("[]")
+  code         String
+  rating       Float      @default(0)
+  ratingCount  Int        @default(0)
+  imageUrl     Json       @default("[]")
+  isAvailable  Boolean    @default(true)
+  status       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  
   // Relations
-  images      FoodImage[]
-  cartItems   CartItem[]
-  orderItems  OrderItem[] @relation("FoodOrderItem")
-  ratings     Rating[]    @relation("FoodRating")
-  comments    Comment[]
+  cartItems  CartItem[]
+  orderItems OrderItem[] @relation("FoodOrderItem")
+  comments   Comment[]
+
+  @@index([restaurantId])
+  @@index([categoryId])
+  @@index([code])
 }
 
-// New model for food images
+model FoodTag {
+  id        String    @id @default(uuid())
+  name      String    
+  // products  Product[]
+  foodId    String
+  // food      Food      @relation(fields: [foodId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model FoodType {
+  id        String   @id @default(uuid())
+  name      String   
+  foodId    String
+  // food      Food     @relation(fields: [foodId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model FoodImage {
   id        String   @id @default(uuid())
   foodId    String
-  food      Food     @relation(fields: [foodId], references: [id])
+  // food      Food     @relation(fields: [foodId], references: [id])
   url       String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-// Cart Module
+
+// phụ gia
+model Additives {
+  id        String   @id @default(uuid())
+  title     String
+  price     Float
+  foodId    String
+  // food      Food?     @relation(fields: [foodId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Rating {
+  id           String     @id @default(uuid())
+  orderId      String     @unique
+  order        Order      @relation(fields: [orderId], references: [id])
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  restaurantId String // Changed from storeId
+  restaurant   Restaurant @relation("RestaurantRating", fields: [restaurantId], references: [id])
+  foodId       String
+  // food         Food       @relation("FoodRating", fields: [foodId], references: [id])
+  rating       Float
+  ratingCount  Int        @default(0)
+  comment      String?
+  createdAt    DateTime   @default(now())
+
+  @@index([userId])
+  @@index([restaurantId])
+  @@index([foodId])
+}
+
+
 model Cart {
   id        String     @id @default(uuid())
   userId    String     @unique
@@ -131,21 +216,25 @@ model CartItem {
 
 // Order Module
 model Order {
-  id         String      @id @default(uuid())
-  customerId String
-  customer   User        @relation(fields: [customerId], references: [id])
-  storeId    String
-  store      Store       @relation(fields: [storeId], references: [id])
-  items      OrderItem[]
-  status     OrderStatus @default(PENDING)
-  total      Float
-  delivery   Delivery?
-  rating     Rating?
-  payment    Payment?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  shipper    Shipper?    @relation("ShipperOrder", fields: [shipperId], references: [id])
-  shipperId  String?
+  id              String      @id @default(uuid())
+  customerId      String
+  customer        User        @relation(fields: [customerId], references: [id])
+  restaurantId    String
+  restaurant      Restaurant  @relation(fields: [restaurantId], references: [id])
+  items           OrderItem[]
+  status          OrderStatus @default(PENDING)
+  total           Float
+  delivery        Delivery?
+  rating          Rating?
+  payment         Payment?
+  shipperId       String?
+  shipper         Shipper?    @relation("ShipperOrder", fields: [shipperId], references: [userId])
+  deliveryAddress String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([customerId])
+  @@index([restaurantId])
 }
 
 enum OrderStatus {
@@ -159,28 +248,29 @@ enum OrderStatus {
 }
 
 model OrderItem {
-  id        String  @id @default(uuid())
-  orderId   String
-  order     Order   @relation(fields: [orderId], references: [id])
-  foodId    String
-  food      Food    @relation("FoodOrderItem", fields: [foodId], references: [id])
-  quantity  Int
-  price     Float
+  id       String @id @default(uuid())
+  orderId  String
+  order    Order  @relation(fields: [orderId], references: [id])
+  foodId   String
+  food     Food   @relation("FoodOrderItem", fields: [foodId], references: [id])
+  quantity Int
+  price    Float
 }
 
 // Shipper Module
 model Shipper {
-  id            String    @id @default(uuid())
-  userId        String    @unique
-  user          User      @relation(fields: [userId], references: [id])
-  vehicleType   String
-  licensePlate  String
-  status        Boolean   @default(true)
-  latitude      Float?
-  longitude     Float?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  orders        Order[]   @relation("ShipperOrder")
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  vehicleType  String
+  licensePlate String
+  status       Boolean  @default(true)
+  isActive     Boolean  @default(true)
+  latitude     Float?
+  longitude    Float?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  orders       Order[]  @relation("ShipperOrder")
 }
 
 // Notification Module
@@ -211,7 +301,7 @@ model Message {
   chatId     String
   chat       Chat     @relation("ChatMessage", fields: [chatId], references: [id])
   senderId   String
-  receiverId String  
+  receiverId String
   content    String
   createdAt  DateTime @default(now())
 }
@@ -222,27 +312,11 @@ model Payment {
   orderId       String   @unique
   order         Order    @relation(fields: [orderId], references: [id])
   amount        Float
-  provider      String   // VNPAY, MOMO
+  provider      String // VNPAY, MOMO
   status        Boolean  @default(false)
   transactionId String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-}
-
-// Rating & Comment
-model Rating {
-  id        String   @id @default(uuid())
-  orderId   String   @unique
-  order     Order    @relation(fields: [orderId], references: [id])
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  storeId   String
-  store     Store    @relation("StoreRating", fields: [storeId], references: [id])
-  foodId    String
-  food      Food     @relation("FoodRating", fields: [foodId], references: [id])
-  rating    Int
-  comment   String?
-  createdAt DateTime @default(now())
 }
 
 model Comment {
@@ -257,75 +331,62 @@ model Comment {
 }
 
 model Product {
-  id          String    @id @default(uuid())
-  storeId     String
-  store       Store     @relation(fields: [storeId], references: [id])
-  name        String
-  description String?
-  price       Float
-  imageUrls   String    @db.Text // Store as JSON string
-  categoryId  String
-  category    Category  @relation(fields: [categoryId], references: [id])
-  tags        Tag[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id           String     @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  name         String
+  description  String?
+  price        Float
+  imageUrls    String     @db.Text
+  categoryId   String
+  category     Categories @relation(fields: [categoryId], references: [id])
+  // foodTags     FoodTag[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 }
 
-model Category {
-  id        String    @id @default(uuid())
-  name      String
-  products  Product[]
-  foods     Food[]
-}
-
-model Tag {
-  id        String    @id @default(uuid())
-  name      String
-  products  Product[]
-  foods     Food[]
-}
 
 model Delivery {
-  id        String    @id @default(uuid())
-  orderId   String    @unique
-  order     Order     @relation(fields: [orderId], references: [id])
+  id        String   @id @default(uuid())
+  orderId   String   @unique
+  order     Order    @relation(fields: [orderId], references: [id])
   shipperId String
-  shipper   User      @relation(fields: [shipperId], references: [id])
+  shipper   User     @relation(fields: [shipperId], references: [id])
   status    String
-  location  String?   // Current location coordinates
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  location  String? // Current location coordinates
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Transaction Model
 model Transaction {
-  id            String          @id @default(uuid())
-  userId        String
-  user          User            @relation(fields: [userId], references: [id])
-  amount        Float
-  type          TransactionType
-  status        TransactionStatus @default(PENDING)
-  
+  id     String            @id @default(uuid())
+  userId String
+  user   User              @relation(fields: [userId], references: [id])
+  amount Float
+  type   TransactionType
+  status TransactionStatus @default(PENDING)
+
   // Thông tin chuyển khoản
-  bankName      String?         // Tên ngân hàng
-  accountNumber String?         // Số tài khoản nhận tiền
-  accountName   String?         // Tên chủ tài khoản
-  transferCode  String?         // Mã giao dịch ngân hàng
-  content       String?         // Nội dung chuyển khoản (VD: "AGO ST001")
-  driverCode    String?         // Mã tài xế (VD: "ST001")
-  
-  proofImage    String?         // URL ảnh chụp màn hình chuyển khoản
-  adminId       String?         // ID admin xử lý
-  note          String?         // Ghi chú của admin
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  bankName      String? // Tên ngân hàng
+  accountNumber String? // Số tài khoản nhận tiền
+  accountName   String? // Tên chủ tài khoản
+  transferCode  String? // Mã giao dịch ngân hàng
+  content       String? // Nội dung chuyển khoản (VD: "AGO ST001")
+  driverCode    String? // Mã tài xế (VD: "ST001")
+
+  proofImage String? // URL ảnh chụp màn hình chuyển khoản
+  adminId    String? // ID admin xử lý
+  note       String? // Ghi chú của admin
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 enum TransactionType {
-  DEPOSIT      // Nạp tiền
-  WITHDRAWAL   // Rút tiền
-  EARNING      // Thu nhập từ đơn hàng
-  COMMISSION   // Chiết khấu
+  DEPOSIT // Nạp tiền
+  WITHDRAWAL // Rút tiền
+  EARNING // Thu nhập từ đơn hàng
+  COMMISSION // Chiết khấu
 }
 
 enum TransactionStatus {
@@ -334,3 +395,7 @@ enum TransactionStatus {
   REJECTED
   CANCELLED
 }
+
+
+
+

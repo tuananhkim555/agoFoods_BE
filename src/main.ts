@@ -11,6 +11,7 @@ import { BadRequestException } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
 import { HttpAdapterHost } from '@nestjs/core';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -56,6 +57,7 @@ async function bootstrap() {
   );
   app.useGlobalFilters(new AllExceptionFilter());
   app.useGlobalInterceptors(new ResponseSuccessInterceptor(new Reflector()));
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   // Swagger setup
   const config = new DocumentBuilder()
@@ -75,6 +77,8 @@ async function bootstrap() {
     )
     .addTag('Auth')
     .addTag('Users')
+    .addTag('Categories')
+    .addTag('Restaurants')
     .addTag('Foods')
     .addTag('Orders')
     .addTag('Stores')

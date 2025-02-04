@@ -1,10 +1,11 @@
-import { HttpException, HttpStatus, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {  Injectable, BadRequestException, NotFoundException, UnauthorizedException, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
 import { CreateUserDto, UpdateUserDto, UserFilterDto, UserNameSearchDto } from './dto/users.dto';
 import * as bcrypt from 'bcrypt';
-import { Gender, Role, User } from '@prisma/client';
+import { Gender, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { Request } from 'express';
 import { JwtService } from '@nestjs/jwt';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 declare module 'express' {
     interface Request {
@@ -23,7 +24,7 @@ export class UsersService {
     private async generateCustomId(role: Role): Promise<string> {
         const prefix = {
             [Role.CUSTOMER]: 'KH',
-            [Role.STORE]: 'ST',
+            [Role.RESTAURANTS]: 'ST',
             [Role.SHIPPER]: 'SH',
             [Role.ADMIN]: 'AD'
         }[role];
@@ -65,7 +66,7 @@ export class UsersService {
         createdAt: 'desc',
       },
     });
-
+  
     return {
       pageIndex: pageIndex,
       pageSize: pageSize,
@@ -85,7 +86,21 @@ export class UsersService {
         if(body.role === Role.ADMIN) {
             throw new BadRequestException('Không thể tạo tài khoản ADMIN trực tiếp');
         }
-      
+        // Kiểm tra email đã tồn tại
+        const existingEmail = await this.prisma.user.findFirst({
+            where: { email: body.email }
+        });
+        if (existingEmail) {
+            throw new BadRequestException('Email này đã được đăng ký');
+        }
+
+        // Kiểm tra số điện thoại đã tồn tại
+        const existingPhone = await this.prisma.user.findFirst({
+            where: { phone: body.phone }
+        });
+        if (existingPhone) {
+            throw new BadRequestException('Số điện thoại này đã được đăng ký');
+        }
 
         const customId = await this.generateCustomId(body.role as Role);
         const hashedPassword = await bcrypt.hash(body.password, 10);
@@ -106,33 +121,57 @@ export class UsersService {
     }
 
     //Xóa tài khoản
-    deleteUsers = async (id: string, currentUserId: string) => {
-        // Kiểm tra user có tồn tại không
-        const user = await this.prisma.user.findUnique({
-            where: { id }
-        });
-
-        if (!user) {
-            throw new BadRequestException('Tài khoản ID không tồn tại hoặc không đúng ID');
-        }
-
-        // Kiểm tra xem người dùng có đang cố xóa tài khoản của người khác không
-        
-      
-
-        return this.prisma.user.delete({
-            where: { id }
-        });
-    }
+    async deleteUsers(id: string, currentUser: User) {
+      try {
+          // Kiểm tra user có tồn tại không
+          const userToDelete = await this.prisma.user.findUnique({
+              where: { id }
+          });
+  
+          if (!userToDelete) {
+              throw new NotFoundException('Tài khoản không tồn tại');
+          }
+  
+          // Chỉ ADMIN hoặc chính user mới có thể xóa
+          if (currentUser.role !== Role.ADMIN && currentUser.id !== id) {
+              throw new ForbiddenException('Không có quyền xóa tài khoản này');
+          }
+  
+          // 🛠 Xóa tất cả dữ liệu liên quan trước khi xóa User
+          await this.prisma.restaurant.deleteMany({ where: { userId: id } });
+          await this.prisma.categories.deleteMany({ where: { id } });
+          await this.prisma.food.deleteMany({ where: { id } });
+  
+          // Xóa User sau khi xóa tất cả dữ liệu liên quan
+          await this.prisma.user.delete({ where: { id } });
+  
+          return {
+              status: 'success',
+              code: 200,
+              message: 'Xóa tài khoản thành công'
+          };
+  
+      } catch (error) {
+          console.error(error);
+  
+          if (error instanceof Prisma.PrismaClientKnownRequestError) {
+              throw new BadRequestException(`Không thể xóa tài khoản này: ${error.message}`);
+          }
+          throw error;
+      }
+  }  
 
     //Lấy thông tin tài khoản
-    getUserById = async (id: string) => {
+    getUserById = async (id: string, req: any) => {
       if(!id){
         throw new BadRequestException('Tài khoản không tồn tại');
       }
+      if(req.user.role !== Role.ADMIN && req.user.id !== id){
+        throw new UnauthorizedException('Bạn không có quyền xem thông tin tài khoản khác');
+      }
       return this.prisma.user.findUnique({
             where: { id: id },
-          });
+      });
     }
 
     //Tìm kiếm và phân trang
@@ -210,16 +249,6 @@ export class UsersService {
             throw new NotFoundException('Tài khoản không tồn tại');
         }
 
-        // Check if user is modifying their own account
-        if (id !== currentUserId) {
-            throw new BadRequestException('Bạn chỉ có thể chỉnh sửa thông tin tài khoản của chính mình');
-        }
-
-        // Prevent direct role changes
-        if (updateUserDto.role && updateUserDto.role !== existingUser.role) {
-            throw new BadRequestException('Không được phép thay đổi vai trò người dùng trực tiếp');
-        }
-
         // Prepare update data
         const updateData: any = {
             fullName: updateUserDto.fullName,
@@ -243,7 +272,8 @@ export class UsersService {
     //Tìm kiếm tài khoản
     searchUsers = async (filters: UserNameSearchDto) => {
         const { name } = filters;
-        const search = name || '';
+        const search = name || ''
+
         return this.prisma.user.findMany({
           where: { fullName: { contains: search } },
         });
@@ -282,65 +312,17 @@ export class UsersService {
         }
     }
 
-    //Đăng ký cửa hàng
-    async registerStore(
-        userId: string, 
-        storeData: {
-            storeName: string;
-            storeDescription: string;
-            storeAddress: string;
-        }
-    ) {
-        // Kiểm tra user có tồn tại không
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId }
-        });
-
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
-
-        // Tạo store mới
-        const store = await this.prisma.store.create({
-            data: {
-                name: storeData.storeName,
-                address: storeData.storeAddress,
-                userId: userId,
-                idCard: '',           // Add default or get from storeData
-                birthDate: new Date(), // Add default or get from storeData
-                hometown: '',         // Add default or get from storeData
-                openTime: new Date(), // Add default or get from storeData
-                closeTime: new Date() // Add default or get from storeData
-            }
-        });
-
-        // Cập nhật role của user thành STORE
-        const updatedUser = await this.prisma.user.update({
-            where: { id: userId },
-            data: { role: Role.STORE }
-        });
-
-        return {
-            message: 'Store registered successfully',
-            store,
-            user: updatedUser
-        };
-    }
-
     // Set quyền ADMIN
-    setAdminRole = async (userId: string) => {
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId }
-        });
-
-        if (!user) {
-            throw new NotFoundException('Không tìm thấy người dùng');
+    async setAdmin(userId: string) {
+        try {
+            const user = await this.prisma.user.update({
+                where: { id: userId },
+                data: { role: Role.ADMIN },
+            });
+            return user;
+        } catch (error) {
+            console.error('Error setting user as admin:', error);
+            throw new InternalServerErrorException('Could not set user as admin: ' + error.message);
         }
-
-        return this.prisma.user.update({
-            where: { id: userId },
-            data: { role: Role.ADMIN }
-        });
     }
 }
-    

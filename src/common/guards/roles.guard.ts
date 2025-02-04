@@ -1,54 +1,37 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ROLES_KEY } from '../decorators/roles.decorator';
 import { Role } from '@prisma/client';
+import { UnauthorizedException } from '@nestjs/common';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-
+    const requiredRoles = this.reflector.get<Role[]>('roles', context.getHandler());
     if (!requiredRoles) {
       return true;
     }
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
-    const params = request.params;
+    const { id } = context.switchToHttp().getRequest().params;
 
-    // Debug logs
-    console.log('Required roles:', requiredRoles);
-    console.log('User from request:', user);
-    console.log('User role:', user?.role);
-    console.log('Request params:', params);
-
-    // Nếu không có user, từ chối truy cập
-    if (!user) {
-      console.log('No user found in request');
-      return false;
-    }
-
-    // Nếu là ADMIN, cho phép tất cả
+    // Nếu là ADMIN, luôn cho phép truy cập
     if (user.role === Role.ADMIN) {
-      console.log('User is ADMIN, access granted');
       return true;
     }
 
-    // Nếu user đang thao tác trên chính tài khoản của mình
-    if (params.id === user.id) {
-      console.log('User accessing own account');
+    // Nếu user đang truy cập thông tin của chính mình
+    if (id && id === user.id) {
       return true;
     }
 
-    // Kiểm tra role
-    const hasRole = requiredRoles.includes(user.role);
-    console.log('Role check result:', hasRole);
+    // Kiểm tra role của user có trong danh sách roles cho phép không
+    if (requiredRoles.includes(user.role)) {
+      return true;
+    }
 
-    return hasRole;
+    throw new UnauthorizedException('Bạn không có quyền thực hiện chức năng này');
   }
 } 

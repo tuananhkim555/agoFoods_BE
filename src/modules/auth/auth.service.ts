@@ -1,16 +1,14 @@
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, UnauthorizedException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { RegisterDto } from './dto/auth.dto';
 import { Gender, Role, User } from '@prisma/client';
 import { hash, compare } from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { IdGenerator } from 'src/common/helpers/id-generator.helper';
 
 @Injectable()
 export class AuthService {
-  setAdminRole(userId: string, apiKey: string) {
-    throw new Error('Method not implemented.');
-  }
   constructor(
     public prisma: PrismaService,
     private jwtService: JwtService,
@@ -84,8 +82,12 @@ export class AuthService {
 
       const hashPassword = await hash(userData.password, 10);
       
+      // Generate custom ID based on role
+      const customId = await IdGenerator.generateUserId(userData.role, this.prisma);
+      
       const user = await this.prisma.user.create({
         data: {
+          id: customId, // Use generated ID instead of default UUID
           email: userData.email,
           phone: userData.phone,
           password: hashPassword,
@@ -101,12 +103,7 @@ export class AuthService {
       return {
         statusCode: HttpStatus.CREATED,
         message: 'Đăng ký thành công',
-        data: {
-          id: user.id,
-          email: user.email,
-          fullName: user.fullName,
-          role: user.role
-        }
+        data: user // Return full user object
       };
       
     } catch (error) {
@@ -191,5 +188,28 @@ export class AuthService {
   async logout(userId: string) {
     // Implement any necessary cleanup
     return { success: true };
+  }
+
+  async setAdminRole(userId: string, apiKey: string): Promise<void> {
+    try {
+      // Check if the user exists
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Update the user's role to ADMIN
+      const newUserId = userId.replace(/^(KH|ST|SH)/, 'AD'); // Thay đổi mã từ KH, ST, SH thành AD
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { role: Role.ADMIN, id: newUserId }, // Ensure this matches your Role enum
+      });
+    } catch (error) {
+      console.error('Error setting admin role:', error);
+      throw new InternalServerErrorException('Could not set admin role: ' + error.message);
+    }
   }
 }

@@ -12,6 +12,8 @@ import {
   Req,
   UseGuards,
   ForbiddenException,
+  UnauthorizedException,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
@@ -45,8 +47,9 @@ export class UsersController {
   constructor(private userService: UsersService) {}
 
   //Get all users
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiBearerAuth('JWT-auth')
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiResponse({
     description: 'Success',
   })
@@ -56,8 +59,9 @@ export class UsersController {
   }
 
   //Tạo tài khoản
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiBearerAuth('JWT-auth')
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBody({
     type: CreateUserDto,
   })
@@ -72,21 +76,19 @@ export class UsersController {
 
   //Xóa tài khoản
   @Delete(':id')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.CUSTOMER, Role.SHIPPER, Role.STORE)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  async deleteUser(@Param('id') id: string, @GetUser() user: User) {
-    // Kiểm tra xem user có quyền xóa không
-    if (user.role !== Role.ADMIN && id !== user.id) {
-      throw new ForbiddenException('Bạn không có quyền xóa tài khoản này');
-    }
-    return this.userService.deleteUsers(id, user.id);
+  @ApiResponse({ status: 200, description: 'User deleted successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  deleteUsers(@Param('id') id: string, @GetUser() currentUser: User) {
+    return this.userService.deleteUsers(id, currentUser);
   }
 
   //Tìm kiếm và phân trang
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiBearerAuth('JWT-auth')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
   @ApiResponse({
     description: 'Success',
   })
@@ -99,17 +101,23 @@ export class UsersController {
   }
 
   //Lấy thông tin tài khoản
+  // dùng JwtAuthGuard để lấy thông tin user 
+  // ADMIN có thể xem tất cả, user khác chỉ xem được thông tin của mình
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.CUSTOMER, Role.SHIPPER, Role.RESTAURANTS)
+  @ApiBearerAuth('JWT-auth')
   @ApiResponse({
     description: 'Success',
   })
   @Get(':id')
-  getUserById(@Param('id') id: string) {
-    return this.userService.getUserById(id);
+  getUserById(@Param('id') id: string, @Req() req: RequestWithUser) {
+    return this.userService.getUserById(id, req);
   }
 
   //Cập nhật thông tin tài khoản
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.CUSTOMER, Role.SHIPPER, Role.RESTAURANTS)
   @ApiBearerAuth('JWT-auth')
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBody({
     type: UpdateUserDto,
   })
@@ -120,12 +128,19 @@ export class UsersController {
   updateUser(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
-    @Req() req: RequestWithUser,
+    @GetUser() user: User,
   ) {
-    return this.userService.updateUser(id, req.user.id, updateUserDto);
+    // ADMIN có thể update tất cả, user khác chỉ update được của mình
+    if (user.role !== Role.ADMIN && id !== user.id) {
+      throw new UnauthorizedException('Bạn chỉ có thể cập nhật thông tin của mình');
+    }
+    return this.userService.updateUser(id, user.id, updateUserDto);
   }
 
   //Tìm kiếm tài khoản
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth('JWT-auth')
   @ApiResponse({
     description: 'Success',
   })
@@ -149,9 +164,10 @@ export class UsersController {
   }
 
   //Tải ảnh đại diện lên cloud
-  @Post('avatar-cloud')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.CUSTOMER, Role.SHIPPER, Role.RESTAURANTS)
   @ApiBearerAuth('JWT-auth')
+  @Post('avatar-cloud')
   @ApiResponse({ description: 'Success' })
   @UseInterceptors(FileInterceptor('avatar', { storage: storageAvatarUser }))
   @ApiConsumes('multipart/form-data')
@@ -163,30 +179,4 @@ export class UsersController {
     return this.userService.uploadAvatar(file, req.user.id, req.user.id);
   }
 
-  // Đăng ký cửa hàng
-  @Post('register-store')
-  @UseGuards(JwtAuthGuard)
-  @Roles(Role.CUSTOMER)
-  @ApiResponse({ description: 'Success' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        storeName: { type: 'string' },
-        storeDescription: { type: 'string' },
-        storeAddress: { type: 'string' },
-      },
-    },
-  })
-  async registerStore(
-    @Body()
-    storeData: {
-      storeName: string;
-      storeDescription: string;
-      storeAddress: string;
-    },
-    @Req() req: RequestWithUser,
-  ) {
-    return this.userService.registerStore(req.user.id, storeData);
-  }
 }
