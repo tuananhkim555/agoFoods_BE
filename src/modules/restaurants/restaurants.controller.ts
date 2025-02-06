@@ -21,16 +21,17 @@ export class RestaurantsController {
    @ApiBearerAuth('JWT-auth')
    @Get('byId/:id')
    getRestaurantById(@Param('id') id: string) {
-     return this.restaurantsService.getRestaurantsById(id);
+     return this.restaurantsService.getRestaurantById(id);
    }
 
   // Lấy ngẫu nhiên nhà hàng
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @Get(':code')
+  @Get('random/:code')
   getRandomRestaurants(@Param('code') code: string, @Req() req: any) {
     return this.restaurantsService.getRandomRestaurants(req, code);
   }
+
 
   // Lấy tất cả nhà hàng gần đây
   @UseGuards(JwtAuthGuard)

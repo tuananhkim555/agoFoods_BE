@@ -7,31 +7,30 @@ import { UpdateFoodDto } from './dto/update-food.dto';
 export class FoodsService {
   constructor(private prisma: PrismaService) {}
 
+  private generateFoodId(): string {
+    const randomNum = Math.floor(10000 + Math.random() * 90000); // 5 digit number
+    return `AGO_FOOD${randomNum}`;
+  }
+
+  // Tạo món ăn
   async createFood(createFoodDto: CreateFoodDto) {
     try {
-      // Ensure additives is initialized as empty array if undefined
-      const additives = createFoodDto.additives || [];
-      const foodTags = createFoodDto.foodTags || [];
-      const foodType = createFoodDto.foodType || [];
-
       const food = await this.prisma.food.create({
         data: {
+          id: this.generateFoodId(), // Custom ID format
           ...createFoodDto,
-          foodTags: JSON.stringify(foodTags),
-          foodType: JSON.stringify(foodType),
-          additives: JSON.stringify(additives),
-          imageUrl: 
-             createFoodDto.imageUrl
+          foodTags: JSON.stringify(createFoodDto.foodTags || []),
+          foodType: JSON.stringify(createFoodDto.foodType || []),
+          additives: JSON.stringify(createFoodDto.additives || []),
+          imageUrl: createFoodDto.imageUrl
         },
         include: {
-          category: true,
+          category: true
         }
       });
 
-      // Format response with parsed arrays
       return {
-        message: 'Tạo món ăn thành công',
-        data: {
+        createFood: {
           ...food,
           foodTags: JSON.parse(food.foodTags as string || '[]'),
           foodType: JSON.parse(food.foodType as string || '[]'),
@@ -43,8 +42,16 @@ export class FoodsService {
     }
   }
 
+  // Lấy tất cả danh sách món ăn
   async getFoods(query: any) {
-    const { skip = 0, take = 10, restaurantId } = query;
+    let { pageIndex, pageSize, skip = 0, take = 10, restaurantId } = query as any;
+
+    pageIndex = +pageIndex > 0 ? +pageIndex : 1; //chuỗi convert '' sang Number
+    pageSize = +pageSize > 0 ? +pageSize : 3;
+
+    skip = (pageIndex - 1) * pageSize;
+    const totalItems = await this.prisma.user.count();
+    const totalPages = Math.ceil(totalItems / pageSize);
 
     const foods = await this.prisma.food.findMany({
       where: { 
@@ -59,18 +66,22 @@ export class FoodsService {
     });
 
     return {
-      status: 'success',
-      code: 200,
-      message: 'Thành công',
-      data: foods.map(food => ({
-        ...food,
-        foodTags: JSON.parse(food.foodTags as string),
-        foodType: JSON.parse(food.foodType as string),
-        additives: JSON.parse(food.additives as string)
-      }))
+      data: {
+        pageIndex,
+        pageSize,
+        totalItems,
+        totalPages,
+        items: foods.map(food => ({
+          ...food,
+          foodTags: JSON.parse(food.foodTags as string || '[]'),
+          foodType: JSON.parse(food.foodType as string || '[]'),
+          additives: JSON.parse(food.additives as string || '[]')
+        }))
+      }
     };
   }
 
+  // Lấy danh sách món ăn bằng id
   async getFood(id: string) {
     const food = await this.prisma.food.findUnique({
       where: { id },
@@ -83,10 +94,7 @@ export class FoodsService {
       throw new NotFoundException('Không tìm thấy món ăn');
     }
 
-    return {
-      status: 'success',
-      code: 200,
-      message: 'Thành công',
+    return { 
       data: {
         ...food,
         foodTags: JSON.parse(food.foodTags as string),
@@ -96,6 +104,108 @@ export class FoodsService {
     };
   }
 
+
+  // Lấy danh sách món ăn ngẫu nhiên
+  async getRandomFoods(code: string) {
+    try {
+      // Get 5 random foods by code
+      const foods = await this.prisma.food.findMany({
+        where: {
+          code,
+          isAvailable: true
+        },
+        take: 5,
+        orderBy: {
+          rating: 'desc'
+        },
+        include: {
+          category: true
+        }
+      });
+  
+      if (!foods.length) {
+        throw new NotFoundException('Không tìm thấy món ăn');
+      }
+  
+      return {
+        status: 'success',
+        code: 200,
+        data: foods.map(food => ({
+          ...food,
+          foodTags: JSON.parse(food.foodTags as string || '[]'),
+          foodType: JSON.parse(food.foodType as string || '[]'),
+          additives: JSON.parse(food.additives as string || '[]')
+        }))
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException('Không thể lấy danh sách món ăn ngẫu nhiên');
+    }
+  }
+
+
+  // Lấy món ăn theo nhà hàng
+  async getFoodsByRestaurant(
+    restaurantId: string,
+    query: { pageIndex?: number; pageSize?: number; }
+  ) {
+    try {
+      // Default pagination values
+      const pageIndex = Number(query.pageIndex) || 1;
+      const pageSize = Number(query.pageSize) || 10;
+      const skip = (pageIndex - 1) * pageSize;
+  
+      // Get total count for this restaurant
+      const totalItems = await this.prisma.food.count({
+        where: {
+          restaurantId,
+          isAvailable: true
+        }
+      });
+  
+      const totalPages = Math.ceil(totalItems / pageSize);
+  
+      // Get paginated foods
+      const foods = await this.prisma.food.findMany({
+        where: {
+          restaurantId,
+          isAvailable: true
+        },
+        skip,
+        take: pageSize,
+        orderBy: {
+          createdAt: 'desc'
+        },
+        include: {
+          category: true
+        }
+      });
+  
+      return {
+        status: 'success',
+        code: 200,
+        data: {
+          pageIndex,
+          pageSize,
+          totalItems,
+          totalPages,
+          items: foods.map(food => ({
+            ...food,
+            foodTags: JSON.parse(food.foodTags as string || '[]'),
+            foodType: JSON.parse(food.foodType as string || '[]'),
+            additives: JSON.parse(food.additives as string || '[]')
+          }))
+        }
+      };
+    } catch (error) {
+      throw new BadRequestException('Không thể lấy danh sách món ăn');
+    }
+  }
+  
+ 
+  // Cập nhật món ăn
   async updateFood(id: string, updateFoodDto: UpdateFoodDto) {
     const food = await this.prisma.food.update({
       where: { id },
@@ -117,8 +227,6 @@ export class FoodsService {
     });
 
     return {
-      status: 'success',
-      code: 200,
       message: 'Cập nhật thành công',
       data: {
         ...food,

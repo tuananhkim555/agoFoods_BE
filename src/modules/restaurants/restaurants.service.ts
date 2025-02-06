@@ -20,6 +20,11 @@ export class RestaurantsService {
   restaurants: any;
   constructor(private prisma: PrismaService) {}
 
+  private generateRestaurantId(): string {
+    const randomNum = Math.floor(10000 + Math.random() * 90000); // 5 digit number
+    return `AGO_RES_${randomNum}`;
+  }
+
   // Tạo nhà hàng
   async create(createRestaurantDto: CreateRestaurantDto) {
     if (createRestaurantDto) {
@@ -50,6 +55,7 @@ export class RestaurantsService {
 
       const restaurant = await this.prisma.restaurant.create({
         data: {
+          id: this.generateRestaurantId(), // Custom ID format
           ...createRestaurantDto,
           rating: Number(createRestaurantDto.rating),
           ratingCount: Number(createRestaurantDto.ratingCount),
@@ -59,7 +65,8 @@ export class RestaurantsService {
       });
 
       return {
-        restaurant,
+        message: 'Tạo nhà hàng thành công',
+        data: restaurant
       };
 
     } 
@@ -218,53 +225,42 @@ export class RestaurantsService {
   }
 
   // Lấy nhà hàng theo ID
-  async getRestaurantsById(id: string) {
+  async getRestaurantById(id: string) {
     try {
-        // Tìm nhà hàng theo ID
-        const restaurant = await this.prisma.restaurant.findUnique({
-            where: { id: id },
-            include: {
-                foods: true, // Bao gồm thông tin về món ăn nếu cần
-            },
-        });
-
-        // Kiểm tra xem nhà hàng có tồn tại không
-        if (!restaurant) {
-            throw new NotFoundException({
-                message: 'Nhà hàng không tồn tại.',
-            });
+      const restaurant = await this.prisma.restaurant.findUnique({
+        where: { id },
+        include: {
+          foods: true
         }
-
-        return {
-            id: restaurant.id,
-            title: restaurant.title,
-            time: restaurant.time,
-            imageUrl: restaurant.imageUrl,
-            foods: restaurant.foods || [], // Now foods will be available
-            pickup: restaurant.pickup,
-            delivery: restaurant.delivery,
-            isAvailable: restaurant.isAvailable,
-            verification: restaurant.verification,
-            verificationMessage: restaurant.verificationMessage,
-            userId: restaurant.userId,
-            code: restaurant.code,
-            logoUrl: restaurant.logoUrl,
-            rating: restaurant.rating,
-            ratingCount: restaurant.ratingCount,
-            _v: 0,
-            coords: restaurant.coords ? {
-              id: (restaurant.coords as unknown as CoordsDto).id,
-              title: (restaurant.coords as unknown as CoordsDto).title,
-              latitude: (restaurant.coords as unknown as CoordsDto).latitude,
-              longitude: (restaurant.coords as unknown as CoordsDto).longitude,
-              address: (restaurant.coords as unknown as CoordsDto).address,
-              latitudeDelta: typeof (restaurant.coords as any).latitudeDelta === "number" ? (restaurant.coords as any).latitudeDelta : 0.0122,
-              longitudeDelta: typeof (restaurant.coords as any).longitudeDelta === "number" ? (restaurant.coords as any).longitudeDelta : 0.0122,
-            } : null,
-        }; // Trả về thông tin nhà hàng
+      });
+  
+      if (!restaurant) {
+        throw new NotFoundException('Không tìm thấy nhà hàng');
+      }
+  
+      return {
+        getRestaurentID: {
+          ...restaurant,
+          foods: restaurant.foods.map(food => ({
+            ...food,
+            foodTags: JSON.parse(food.foodTags as string || '[]'),
+            foodType: JSON.parse(food.foodType as string || '[]'),
+            additives: JSON.parse(food.additives as string || '[]'),
+            imageUrl: Array.isArray(food.imageUrl) ? food.imageUrl : JSON.parse(food.imageUrl as string || '[]')
+          })),
+          coords: restaurant.coords ? {
+            id: (restaurant.coords as unknown as CoordsDto).id,
+            title: (restaurant.coords as unknown as CoordsDto).title,
+            latitude: (restaurant.coords as unknown as CoordsDto).latitude,
+            longitude: (restaurant.coords as unknown as CoordsDto).longitude,
+            address: (restaurant.coords as unknown as CoordsDto).address,
+            latitudeDelta: (restaurant.coords as unknown as CoordsDto).latitudeDelta || 0.0122,
+            longtitudeDelta: (restaurant.coords as unknown as CoordsDto).longtitudeDelta || 0.0122
+          } : null
+        },
+      };
     } catch (error) {
-        console.error('Error fetching restaurant by ID:', error);
-        throw new NotFoundException('Đã xảy ra lỗi khi lấy thông tin nhà hàng.');
+      throw new BadRequestException('Không thể lấy thông tin nhà hàng');
     }
   }
 }
