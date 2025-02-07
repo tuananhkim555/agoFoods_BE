@@ -134,34 +134,33 @@ export class FoodsService {
   }
 
   // Lấy thông tin món ăn bằng ID
-  async getFood(id: string) {
-    if (!id) {
-      throw new BadRequestException('ID món ăn không hợp lệ');
-    }
+  // async getFood(id: string) {
+  //   if (!id) {
+  //     throw new BadRequestException('ID món ăn không hợp lệ');
+  //   }
   
-    console.log('Looking for food with ID:', id); // Log thêm để kiểm tra ID
+  //   console.log('Looking for food with ID:', id); // Log thêm để kiểm tra ID
   
-    const food = await this.prisma.food.findUnique({
-      where: { id },
-      include: { category: true },
-    });
+  //   const food = await this.prisma.food.findUnique({
+  //     where: { id },
+  //     include: { category: true },
+  //   });
   
-    if (!food) {
-      throw new NotFoundException('Không tìm thấy món ăn');
-    }
+  //   if (!food) {
+  //     throw new NotFoundException('Không tìm thấy');
+  //   }
   
-    return {
-      data: {
-        ...food,
-        foodTags: food.foodTags || [],
-        foodType: food.foodType || [],
-        additives: food.additives || [],
-      },
-    };
-  }
+  //   return {
+  //     data: {
+  //       ...food,
+  //       foodTags: food.foodTags || [],
+  //       foodType: food.foodType || [],
+  //       additives: food.additives || [],
+  //     },
+  //   };
+  // }
 
   
-  // Lấy danh sách món ăn ngẫu nhiên
     // Lấy danh sách món ăn ngẫu nhiên
     async getRandomFoods(code: string) {
       try {

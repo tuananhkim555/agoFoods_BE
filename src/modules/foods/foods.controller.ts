@@ -39,13 +39,13 @@ export class FoodsController {
   }
 
   //Lấy thông tin món ăn bằng id
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @Get(':id')
-  @ResponseMessage('Lấy thông tin món ăn thành công')
-  async getFood(@Param('id') id: string) {
-    return this.foodsService.getFood(id);
-  }
+  // @UseGuards(JwtAuthGuard)
+  // @ApiBearerAuth('JWT-auth')
+  // @Get(':id')
+  // @ResponseMessage('Lấy thông tin món ăn thành công')
+  // async getFood(@Param('id') id: string) {
+  //   return this.foodsService.getFood(id);
+  // }
 
   // Lấy Random danh sách món ăn
   @Get('random/:code')
