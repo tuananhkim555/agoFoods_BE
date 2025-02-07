@@ -4,7 +4,7 @@ import { Type } from 'class-transformer';
 
 export class Additives {
   @ApiProperty()
-  @IsNumber()
+  @IsString()
   id: string;
 
   @ApiProperty()

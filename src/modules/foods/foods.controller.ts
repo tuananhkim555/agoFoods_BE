@@ -35,17 +35,35 @@ export class FoodsController {
   @Get()
   @ResponseMessage('Lấy danh sách món ăn thành công')
   async getFoods(@Query() query: any) {
-    return this.foodsService.getFoods(query);
+    return this.foodsService.getFoodAll(query);
   }
 
+
+     // Search món ăn (nên nhớ đặt trước /:id)
+     @Get('search')
+     @UseGuards(JwtAuthGuard)
+     @ApiBearerAuth('JWT-auth')
+     @ApiQuery({ name: 'text', required: true, description: 'Từ khóa tìm kiếm' })
+     @ApiQuery({ name: 'pageIndex', required: false, type: Number, description: 'Trang hiện tại (mặc định 1)' })
+     @ApiQuery({ name: 'pageSize', required: false, type: Number, description: 'Số lượng món/trang (mặc định 10)' })
+     async searchFoods(
+       @Query('text') text: string,
+       @Query('pageIndex') pageIndex?: number,
+       @Query('pageSize') pageSize?: number
+     ) {
+       if (!text) throw new BadRequestException('Vui lòng nhập từ khóa tìm kiếm');
+       return this.foodsService.searchFoods(text, { pageIndex, pageSize });
+     }
+     
+  
   //Lấy thông tin món ăn bằng id
-  // @UseGuards(JwtAuthGuard)
-  // @ApiBearerAuth('JWT-auth')
-  // @Get(':id')
-  // @ResponseMessage('Lấy thông tin món ăn thành công')
-  // async getFood(@Param('id') id: string) {
-  //   return this.foodsService.getFood(id);
-  // }
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @Get(':id')
+  @ResponseMessage('Lấy thông tin món ăn thành công')
+  async getFood(@Param('id') id: string) {
+    return this.foodsService.getFoodById(id);
+  }
 
   // Lấy Random danh sách món ăn
   @Get('random/:code')
@@ -57,7 +75,7 @@ export class FoodsController {
     return this.foodsService.getRandomFoods(code);
   }
 
- // Lấy món ăn theo nhà hàng
+ // Lấy món ăn theo id nhà hàng
   @Get('byRestaurant/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
@@ -74,27 +92,11 @@ export class FoodsController {
     return this.foodsService.getFoodsByCategoryAndCode(code, category, query);
   }
 
-    // Search món ăn
-    @Get('search')
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth('JWT-auth')
-    @ApiQuery({ name: 'text', required: true, description: 'Từ khóa tìm kiếm' })
-    @ApiQuery({ name: 'pageIndex', required: false, type: Number, description: 'Trang hiện tại (mặc định 1)' })
-    @ApiQuery({ name: 'pageSize', required: false, type: Number, description: 'Số lượng món/trang (mặc định 10)' })
-    async searchFoods(
-      @Query('text') text: string,
-      @Query('pageIndex') pageIndex?: number,
-      @Query('pageSize') pageSize?: number
-    ) {
-      if (!text) throw new BadRequestException('Vui lòng nhập từ khóa tìm kiếm');
-      return this.foodsService.searchFoods(text, { pageIndex, pageSize });
-    }
-    
-  
 
   //Cập nhật món ăn
   @Put(':id')
-  @Roles(Role.RESTAURANTS)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ResponseMessage('Cập nhật món ăn thành công')
   async updateFood(
     @Param('id') id: string,
@@ -105,6 +107,8 @@ export class FoodsController {
 
   //Xóa món ăn
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @Roles(Role.RESTAURANTS, Role.ADMIN)
   @ResponseMessage('Xóa món ăn thành công')
   async deleteFood(@Param('id') id: string) {

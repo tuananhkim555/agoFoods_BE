@@ -67,7 +67,6 @@ private formatCoords(coords: any): CoordsDto | null {
 }
 
 
-
   // Tạo nhà hàng
   async create(createRestaurantDto: CreateRestaurantDto) {
     
