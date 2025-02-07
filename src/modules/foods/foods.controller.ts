@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Param, Put, Delete, Query, UseInterceptors, UploadedFile, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Param, Put, Delete, Query, UseInterceptors, UploadedFile, Req, BadRequestException } from '@nestjs/common';
 import { FoodsService } from './foods.service';
 import { CreateFoodDto } from './dto/create-food.dto';
 import { UpdateFoodDto } from './dto/update-food.dto';
@@ -6,7 +6,7 @@ import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
-import { ApiBearerAuth, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 
 @Controller('api/foods')
 export class FoodsController {
@@ -65,8 +65,32 @@ export class FoodsController {
     return this.foodsService.getFoodsByRestaurant(id, query);
   }
 
+  // Lấy món ăn theo danh mục và code
+  @Get('byCategory/:code/:category')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'code', required: true })
+  async getFoodsByCategoryAndCode(@Param('code') code: string, @Param('category') category: string, @Query() query: { pageIndex?: number; pageSize?: number }) {
+    return this.foodsService.getFoodsByCategoryAndCode(code, category, query);
+  }
 
-
+    // Search món ăn
+    @Get('search')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
+    @ApiQuery({ name: 'text', required: true, description: 'Từ khóa tìm kiếm' })
+    @ApiQuery({ name: 'pageIndex', required: false, type: Number, description: 'Trang hiện tại (mặc định 1)' })
+    @ApiQuery({ name: 'pageSize', required: false, type: Number, description: 'Số lượng món/trang (mặc định 10)' })
+    async searchFoods(
+      @Query('text') text: string,
+      @Query('pageIndex') pageIndex?: number,
+      @Query('pageSize') pageSize?: number
+    ) {
+      if (!text) throw new BadRequestException('Vui lòng nhập từ khóa tìm kiếm');
+      return this.foodsService.searchFoods(text, { pageIndex, pageSize });
+    }
+    
+  
 
   //Cập nhật món ăn
   @Put(':id')

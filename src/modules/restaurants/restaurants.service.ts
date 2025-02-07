@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, ConflictException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from 'src/common/prisma/prisma.service';
-import { CoordsDto, CreateRestaurantDto } from './dto/restaurants.dto';
+import { Additive, CoordsDto, CreateRestaurantDto, FoodTags, FoodType } from './dto/restaurants.dto';
+import { JsonParser } from 'src/common/helpers/json-parser';
 
 const CREATE_SELECT_FIELDS = {
   id: true,
@@ -15,18 +16,63 @@ const CREATE_SELECT_FIELDS = {
   coords: true,
 };
 
+function safeJsonParse(value: string): any {
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return value; // Return the original value if it's not valid JSON
+  }
+
+}
+
 @Injectable()
 export class RestaurantsService {
   restaurants: any;
   constructor(private prisma: PrismaService) {}
 
-  private generateRestaurantId(): string {
-    const randomNum = Math.floor(10000 + Math.random() * 90000); // 5 digit number
-    return `AGO_RES_${randomNum}`;
+  // format id
+  private async generateRestaurantId(): Promise<string> {
+    while (true) {
+      // Generate random 5 digit number
+      const randomNum = Math.floor(10000 + Math.random() * 90000);
+      const restaurantId = `RES_${randomNum}`;
+      
+      // Check if ID exists
+      const existingFood = await this.prisma.food.findUnique({
+        where: { id: restaurantId }
+      });
+      
+      // Return if ID is unique
+      if (!existingFood) {
+        return restaurantId;
+      }
+    }
   }
+
+
+// Helper method to format coordinates
+private formatCoords(coords: any): CoordsDto | null {
+  if (coords) {
+    return {
+      id: coords.id,
+      title: coords.title,
+      latitude: Number(coords.latitude),
+      longitude: Number(coords.longitude),
+      address: coords.address,
+      latitudeDelta: coords.latitudeDelta || 0.0122,
+      longtitudeDelta: coords.longtitudeDelta || 0.0122,
+    };
+  }
+  return null;
+}
+
+
 
   // Tạo nhà hàng
   async create(createRestaurantDto: CreateRestaurantDto) {
+    
+    const restaurantId = await this.generateRestaurantId();
+
     if (createRestaurantDto) {
       // Check if restaurant exists
       const existingRestaurant = await this.prisma.restaurant.findFirst({
@@ -55,7 +101,7 @@ export class RestaurantsService {
 
       const restaurant = await this.prisma.restaurant.create({
         data: {
-          id: this.generateRestaurantId(), // Custom ID format
+          id: restaurantId,
           ...createRestaurantDto,
           rating: Number(createRestaurantDto.rating),
           ratingCount: Number(createRestaurantDto.ratingCount),
@@ -72,166 +118,15 @@ export class RestaurantsService {
     } 
   }
 
-  // Lấy danh sách ngẫu nhiên 5 nhà hàng
-  async getRandomRestaurants(req: any, code: string) {
-    let { pageIndex, pageSize } = req.query as any;
 
-    pageIndex = +pageIndex > 0 ? +pageIndex : 1; //chuỗi convert '' sang Number
-    pageSize = +pageSize > 0 ? +pageSize : 3;
-
-    const skip = (pageIndex - 1) * pageSize;
-    const totalItems = await this.prisma.user.count();
-    const totalPages = Math.ceil(totalItems / pageSize);
-    // skip: (page -1) * pageSize,
-    try {
-      let randomRestaurants = await this.prisma.restaurant.findMany({
-        where: {
-          code: code,
-          isAvailable: true,
-          version: 0,
-        },
-        take: 5, // Limit to 5 random restaurants
-        include: {
-          foods: true, // Include the foods relation
-        },
-      });
-  
-      if (randomRestaurants.length === 0) {
-        randomRestaurants = await this.prisma.restaurant.findMany({
-          where: {
-            isAvailable: true,
-          },
-          take: 5, // Limit to 5 random restaurants
-          include: {
-            foods: true, // Include the foods relation
-          },
-        });
-      }  
-
-      return {
-        pageIndex: pageIndex,
-        pageSize: pageSize,
-        totalItems: totalItems,
-        totalPages: totalPages,
-        randomRestaurants: randomRestaurants.map(restaurant => ({
-          id: restaurant.id,
-          title: restaurant.title,
-          time: restaurant.time,
-          imageUrl: restaurant.imageUrl,
-          foods: restaurant.foods || [], // Now foods will be available
-          pickup: restaurant.pickup,
-          delivery: restaurant.delivery,
-          isAvailable: restaurant.isAvailable,
-          verification: restaurant.verification,
-          verificationMessage: restaurant.verificationMessage,
-          userId: restaurant.userId,
-          code: restaurant.code,
-          logoUrl: restaurant.logoUrl,
-          rating: restaurant.rating,
-          ratingCount: restaurant.ratingCount,
-          coords: restaurant.coords ? {
-            id: (restaurant.coords as unknown as CoordsDto).id,
-            title: (restaurant.coords as unknown as CoordsDto).title,
-            latitude: (restaurant.coords as unknown as CoordsDto).latitude,
-            longitude: (restaurant.coords as unknown as CoordsDto).longitude,
-            address: (restaurant.coords as unknown as CoordsDto).address,
-            latitudeDelta: typeof (restaurant.coords as any).latitudeDelta === "number" ? (restaurant.coords as any).latitudeDelta : 0.0122,
-            longitudeDelta: typeof (restaurant.coords as any).longitudeDelta === "number" ? (restaurant.coords as any).longitudeDelta : 0.0122,
-          } : null,
-        })),
-      };
-
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new BadRequestException({
-        status: 'error',
-        code: 400,
-        message: 'Lỗi khi lấy danh sách nhà hàng ngẫu nhiên'
-      });
-    }
-  }
-
-  // Lấy tất cả nhà hàng gần nhất
-  async getAllNearByRestaurants(req: any, code: string) {
-    let { pageIndex, pageSize } = req.query as any;
-
-    pageIndex = +pageIndex > 0 ? +pageIndex : 1; // Convert to Number, default to 1
-    pageSize = +pageSize > 0 ? +pageSize : 3; // Convert to Number, default to 3
-
-    const totalItems = await this.prisma.restaurant.count({
-        where: {
-            code: code,
-            isAvailable: true,
-        },
-    });
-
-    const totalPages = Math.ceil(totalItems / pageSize);
-
-    try {
-        const allNearByRestaurants = await this.prisma.restaurant.findMany({
-            where: {
-                code: code,
-                isAvailable: true,
-            },
-            take: pageSize, // Limit to pageSize
-            skip: (pageIndex - 1) * pageSize, // Skip for pagination
-            include: {
-                foods: true, // Include the foods relation
-            },
-        });
-
-        return {
-            pageIndex: pageIndex,
-            pageSize: pageSize,
-            totalItems: totalItems,
-            totalPages: totalPages,
-            allNearByRestaurants: allNearByRestaurants.map(restaurant => ({
-                id: restaurant.id,
-                title: restaurant.title,
-                time: restaurant.time,
-                imageUrl: restaurant.imageUrl,
-                foods: restaurant.foods || [],
-                pickup: restaurant.pickup,
-                delivery: restaurant.delivery,
-                isAvailable: restaurant.isAvailable,
-                verification: restaurant.verification,
-                verificationMessage: restaurant.verificationMessage,
-                userId: restaurant.userId,
-                code: restaurant.code,
-                logoUrl: restaurant.logoUrl,
-                rating: restaurant.rating,
-                ratingCount: restaurant.ratingCount,
-                coords: restaurant.coords ? {
-                    id: (restaurant.coords as unknown as CoordsDto).id,
-                    title: (restaurant.coords as unknown as CoordsDto).title,
-                    latitude: (restaurant.coords as unknown as CoordsDto).latitude,
-                    longitude: (restaurant.coords as unknown as CoordsDto).longitude,
-                    address: (restaurant.coords as unknown as CoordsDto).address,
-                    latitudeDelta: typeof (restaurant.coords as any).latitudeDelta === "number" ? (restaurant.coords as any).latitudeDelta : 0.0122,
-                    longitudeDelta: typeof (restaurant.coords as any).longitudeDelta === "number" ? (restaurant.coords as any).longitudeDelta : 0.0122,
-                } : null,
-            })),
-        };
-
-    } catch (error) {
-        throw new BadRequestException({
-            status: 'error',
-            code: 400,
-            message: 'Lỗi khi lấy danh sách nhà hàng gần đây'
-        });
-    }
-  }
-
-  // Lấy nhà hàng theo ID
+  // Lấy thông tin nhà hàng theo id
   async getRestaurantById(id: string) {
     try {
       const restaurant = await this.prisma.restaurant.findUnique({
         where: { id },
         include: {
-          foods: true
-        }
+          foods: true,
+        },
       });
   
       if (!restaurant) {
@@ -241,26 +136,149 @@ export class RestaurantsService {
       return {
         getRestaurentID: {
           ...restaurant,
-          foods: restaurant.foods.map(food => ({
+          foods: restaurant.foods.map((food) => ({
             ...food,
-            foodTags: JSON.parse(food.foodTags as string || '[]'),
-            foodType: JSON.parse(food.foodType as string || '[]'),
-            additives: JSON.parse(food.additives as string || '[]'),
-            imageUrl: Array.isArray(food.imageUrl) ? food.imageUrl : JSON.parse(food.imageUrl as string || '[]')
+            foodTags: JsonParser.safeJsonParse(food.foodTags as string || '[]'),
+            foodType: JsonParser.safeJsonParse(food.foodType as string || '[]'),
+            additives: JsonParser.safeJsonParse(food.additives as string || '[]'),
+            imageUrl: Array.isArray(food.imageUrl)
+              ? food.imageUrl
+              : safeJsonParse(food.imageUrl as string || '[]'),
           })),
-          coords: restaurant.coords ? {
-            id: (restaurant.coords as unknown as CoordsDto).id,
-            title: (restaurant.coords as unknown as CoordsDto).title,
-            latitude: (restaurant.coords as unknown as CoordsDto).latitude,
-            longitude: (restaurant.coords as unknown as CoordsDto).longitude,
-            address: (restaurant.coords as unknown as CoordsDto).address,
-            latitudeDelta: (restaurant.coords as unknown as CoordsDto).latitudeDelta || 0.0122,
-            longtitudeDelta: (restaurant.coords as unknown as CoordsDto).longtitudeDelta || 0.0122
-          } : null
+          coords: restaurant.coords
+            ? {
+                id: (restaurant.coords as unknown as CoordsDto).id,
+                title: (restaurant.coords as unknown as CoordsDto).title,
+                latitude: (restaurant.coords as unknown as CoordsDto).latitude,
+                longitude: (restaurant.coords as unknown as CoordsDto).longitude,
+                address: (restaurant.coords as unknown as CoordsDto).address,
+                latitudeDelta:
+                  (restaurant.coords as unknown as CoordsDto).latitudeDelta || 0.0122,
+                longtitudeDelta:
+                  (restaurant.coords as unknown as CoordsDto).longtitudeDelta || 0.0122,
+              }
+            : null,
         },
       };
     } catch (error) {
+      console.error(error);
       throw new BadRequestException('Không thể lấy thông tin nhà hàng');
     }
   }
+
+  // Lấy danh sách ngẫu nhiên 5 nhà hàng
+  async getRandomRestaurants(req: any, code: string) {
+    try {
+      let { pageIndex, pageSize } = req.query as any;
+      pageIndex = +pageIndex > 0 ? +pageIndex : 1;
+      pageSize = +pageSize > 0 ? +pageSize : 3;
+  
+      const skip = (pageIndex - 1) * pageSize;
+      const totalItems = await this.prisma.restaurant.count({
+        where: { code, isAvailable: true }
+      });
+  
+      if (totalItems === 0) {
+        throw new NotFoundException('Không tìm thấy nhà hàng');
+      }
+  
+      const totalPages = Math.ceil(totalItems / pageSize);
+  
+      let restaurants = await this.prisma.restaurant.findMany({
+        where: {
+          code,
+          isAvailable: true
+        },
+        include: {
+          foods: true
+        }
+      });
+  
+      return {
+        metaData: {
+          pageIndex,
+          pageSize,
+          totalItems,
+          totalPages,
+          randomRestaurants: restaurants.map(restaurant => ({
+            ...restaurant,
+            foods: restaurant.foods.map(food => ({
+              ...food,
+              foodTags: JsonParser.safeJsonParse(food.foodTags as string || '[]'),
+              foodType: JsonParser.safeJsonParse(food.foodType as string || '[]'),
+              additives: JsonParser.safeJsonParse(food.additives as string || '[]'),
+              imageUrl: Array.isArray(food.imageUrl) ? food.imageUrl : safeJsonParse(food.imageUrl as string || '[]')
+            }))
+          }))
+        }
+      };
+    } catch (error) {
+      console.error(error);
+      throw new BadRequestException('Không thể lấy danh sách nhà hàng');
+    }
+  }
+  
+
+  
+// Lấy tất cả nhà hàng gần nhất
+async getAllNearByRestaurants(req: any, code: string) {
+  try {
+    let { pageIndex, pageSize } = req.query as any;
+    pageIndex = +pageIndex > 0 ? +pageIndex : 1;
+    pageSize = +pageSize > 0 ? +pageSize : 3;
+
+    const skip = (pageIndex - 1) * pageSize;
+    const totalItems = await this.prisma.restaurant.count({
+      where: { code, isAvailable: true },
+    });
+
+    const totalPages = Math.ceil(totalItems / pageSize);
+
+    const restaurants = await this.prisma.restaurant.findMany({
+      where: {
+        code,
+        isAvailable: true,
+      },
+      include: {
+        foods: true,
+      },
+      skip,
+      take: pageSize,
+    });
+
+    // Log the foodTags, foodType, and additives before parsing
+    restaurants.forEach((restaurant) => {
+      restaurant.foods.forEach((food) => {
+      });
+    });
+
+    return {
+      metaData: {
+        pageIndex,
+        pageSize,
+        totalItems,
+        totalPages,
+        allNearByRestaurants: restaurants.map((restaurant) => ({
+          ...restaurant,
+          foods: restaurant.foods.map((food) => ({
+            ...food,
+            foodTags: JsonParser.safeJsonParse<FoodTags>(food.foodTags),
+            foodType: JsonParser.safeJsonParse<FoodType>(food.foodType),
+            additives: JsonParser.safeJsonParse<Additive>(food.additives)
+              .map((additive) => ({
+                id: additive.id,
+                title: additive.title,
+                price: Number(additive.price),
+              })),
+          })),
+          coords: this.formatCoords(restaurant.coords),
+        })),
+      },
+    };
+  } catch (error) {
+    console.error('Error in getAllNearByRestaurants:', error);
+    throw new BadRequestException('Không thể lấy danh sách nhà hàng');
+  }
+}
+  
 }

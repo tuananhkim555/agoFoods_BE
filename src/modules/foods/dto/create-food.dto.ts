@@ -1,5 +1,6 @@
 import { IsNotEmpty, IsNumber, IsString, IsOptional, IsBoolean, Min, Max, IsPositive } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class Additives {
   @ApiProperty()
@@ -25,12 +26,12 @@ export class CreateFoodDto {
   @ApiProperty({ type: [String] })
   @IsString({ each: true })
   @IsOptional()
-  foodTags?: string[];
+  foodTags?: Array<string>[];
 
   @ApiProperty({ type: [String] })
   @IsString({ each: true })
   @IsOptional()
-  foodType?: string[];
+  foodType?: Array<string>[];
 
   @ApiProperty()
   @IsString()
@@ -86,4 +87,36 @@ export class CreateFoodDto {
   @IsString({ each: true })
   @IsOptional()
   imageUrl: string[];
+}
+
+export class PaginationQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  pageIndex?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  pageSize?: number = 10;
+}
+
+
+export class SearchFoodsDto {
+  @IsString()
+  text: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Type(() => Number)
+  pageIndex?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Type(() => Number)
+  pageSize?: number;
 }

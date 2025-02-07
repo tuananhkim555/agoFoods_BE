@@ -96,3 +96,18 @@ export class RestaurantResponseDto extends CreateRestaurantDto {
 
 
 }
+
+
+export interface Additive {
+  id: string;
+  title: string;
+  price: number;
+}
+
+export interface FoodTags {
+  [key: string]: string;
+}
+
+export interface FoodType {
+  [key: string]: string;
+}

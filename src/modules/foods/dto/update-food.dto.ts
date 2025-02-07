@@ -5,11 +5,11 @@ import { Additives, CreateFoodDto } from './create-food.dto';
 export class UpdateFoodDto extends PartialType(CreateFoodDto) {
   @IsOptional()
   @IsArray()
-  foodTags?: string[];
+  foodTags?: Array<string>[];
 
   @IsOptional()
   @IsArray()
-  foodType?: string[];
+  foodType?: Array<string>[];
 
   @IsOptional()
   @IsArray()
