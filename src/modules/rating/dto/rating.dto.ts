@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsNumber, IsString, IsOptional } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsString, IsOptional, IsUUID } from 'class-validator';
 
 export enum RatingType {
   Restaurant = 'Restaurant',
@@ -8,6 +8,7 @@ export enum RatingType {
 }
 
 export class CreateRatingDto {
+
   @ApiProperty()
   @IsNotEmpty()
   @IsNumber()
@@ -36,4 +37,12 @@ export class CreateRatingDto {
   @ApiProperty({ enum: RatingType })
   @IsEnum(RatingType)
   ratingType: RatingType;
+}
+
+
+export class DeleteRatingDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsUUID()
+  ratingId: string; // Chỉ cần ratingId để xóa
 }
