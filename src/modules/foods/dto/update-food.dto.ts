@@ -24,6 +24,11 @@ export class UpdateFoodDto extends PartialType(CreateFoodDto) {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
+  code: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
   categoryId: string;
 
   @ApiProperty()
@@ -36,10 +41,6 @@ export class UpdateFoodDto extends PartialType(CreateFoodDto) {
   @IsNotEmpty()
   isAvailable: boolean;
 
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  code: string;
 
   @ApiProperty()
   @IsString()

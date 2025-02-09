@@ -14,6 +14,7 @@ import { FoodsModule } from './modules/foods/foods.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { RestaurantsModule } from './modules/restaurants/restaurants.module';
+import { RatingModule } from './modules/rating/rating.module';
 @Module({
   imports: [
     AuthModule,
@@ -21,6 +22,7 @@ import { RestaurantsModule } from './modules/restaurants/restaurants.module';
     CategoriesModule,
     RestaurantsModule,
     FoodsModule,
+    RatingModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),

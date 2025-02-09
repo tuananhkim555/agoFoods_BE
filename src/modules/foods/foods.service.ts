@@ -320,25 +320,19 @@ export class FoodsService {
 
   // Lấy món ăn theo danh mục và code
   async getFoodsByCategoryAndCode(
-    code: string,
     category: string,
+    code: string,
     query: { pageIndex?: number; pageSize?: number },
   ) {
     try {
       // 1. Validate required params
-      if (!code) {
-        throw new BadRequestException('Thiếu mã code');
-      }
+
       if (!category) {
         throw new BadRequestException('Thiếu mã danh mục');
       }
-  
-      // 2. Validate code exists
-      const restaurantWithCode = await this.prisma.restaurant.findFirst({
-        where: { code }
-      });
-      if (!restaurantWithCode) {
-        throw new NotFoundException('Không tìm thấy mã code');
+
+      if (!code) {
+        throw new BadRequestException('Thiếu mã code');
       }
   
       // 3. Validate category exists
@@ -347,6 +341,14 @@ export class FoodsService {
       });
       if (!categoryExists) {
         throw new NotFoundException('Không tìm thấy danh mục');
+      }
+
+
+      const restaurantWithCode = await this.prisma.restaurant.findFirst({
+        where: { code }
+      });
+      if (!restaurantWithCode) {
+        throw new NotFoundException('Không tìm thấy mã code');
       }
   
       // 4. Validate and set pagination
@@ -358,9 +360,9 @@ export class FoodsService {
       // 5. Get total count
       const totalItems = await this.prisma.food.count({
         where: {
+          categoryId: category,
           code,
           isAvailable: true,
-          categoryId: category,
         },
       });
   
@@ -373,9 +375,9 @@ export class FoodsService {
       // 6. Get paginated foods
       const foods = await this.prisma.food.findMany({
         where: {
+          categoryId: category,
           code,
           isAvailable: true,
-          categoryId: category,
         },
         skip,
         take: pageSize,
@@ -596,4 +598,73 @@ export class FoodsService {
       throw new InternalServerErrorException('Lỗi hệ thống khi xóa món ăn');
     }
   }
+
+ // Lấy ngẫu nhiêm món ăn bởi danh mục và code
+  async getRandomFoodsByCategoryAndCode(category: string, code: string,) {
+    try {
+      // 1. Validate required params
+      if (!category) {
+        throw new BadRequestException('Thiếu mã code');
+      }
+      if (!code) {
+        throw new BadRequestException('Thiếu mã danh mục');
+      }
+    
+      
+      const categoryExists = await this.prisma.categories.findUnique({
+        where: { id: category }
+      });
+      if (!categoryExists) {
+        throw new NotFoundException('Không tìm thấy danh mục');
+      }
+
+
+      const restaurantWithCode = await this.prisma.restaurant.findFirst({
+        where: { code }
+      });
+      if (!restaurantWithCode) {
+        throw new NotFoundException('Không tìm thấy mã code');
+      }
+  
+      // 4. Get 5 random foods
+      const foods = await this.prisma.food.findMany({
+        where: {
+          categoryId: category,
+          code,
+          isAvailable: true,
+        },
+        take: 10,
+        orderBy: {
+          rating: 'desc',
+        },
+        include: {
+          category: true,
+          restaurant: true
+        },
+      });
+  
+      if (!foods.length) {
+        throw new NotFoundException('Không tìm thấy món ăn');
+      }
+  
+      return {
+        data: foods.map((food) => ({
+          ...food,
+          foodTags: JsonParser.safeJsonParse(food.foodTags),
+          foodType: JsonParser.safeJsonParse(food.foodType),
+          additives: JsonParser.safeJsonParse(food.additives),
+        }),
+        ),
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(
+        'Không thể lấy danh sách món ăn ngẫu nhiên',
+      );
+    }
+  }
+
+
 }

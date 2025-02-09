@@ -53,12 +53,20 @@ enum Gender {
   OTHER
 }
 
+enum RatingType {
+  Restaurant
+  Driver
+  Food
+}
+
 // Model Restaurant 
 model Restaurant {
   id                  String   @id @default(uuid())
   title               String
   time                String
   imageUrl            String
+  avatar              String   // ✅ Thêm ảnh đại diện nhà hàng
+  idCard              String   @unique // ✅ Thêm số chứng minh nhà hàng
   userId              String   @unique
   user                User     @relation("UserRestaurants", fields: [userId], references: [id], onDelete: Cascade)
   code                String
@@ -75,6 +83,8 @@ model Restaurant {
   isVerified          Boolean  @default(false)
   isAvailable         Boolean  @default(true)
   coords              Json
+  reportCount         Int      @default(0)      // Số lần bị báo cáo
+  isBanned            Boolean  @default(false)   // Bị cấm hoạt động
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   version             Int      @default(0) @map("_v")
@@ -117,12 +127,13 @@ model Food {
   additives    Json?      @default("[]")
   code         String
   rating       Float      @default(0)
+  ratings      Rating[]   @relation("FoodRating")
   ratingCount  Int        @default(0)
   imageUrl     Json       @default("[]")
   isAvailable  Boolean    @default(true)
   status       Boolean    @default(true)
   createdAt    DateTime   @default(now())
-  
+
   // Relations
   cartItems  CartItem[]
   orderItems OrderItem[] @relation("FoodOrderItem")
@@ -133,66 +144,79 @@ model Food {
   @@index([code])
 }
 
-model FoodTag {
-  id        String    @id @default(uuid())
-  name      String    
-  // products  Product[]
-  foodId    String
-  // food      Food      @relation(fields: [foodId], references: [id])
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-}
 
-model FoodType {
-  id        String   @id @default(uuid())
-  name      String   
-  foodId    String
-  // food      Food     @relation(fields: [foodId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+// model FoodTag {
+//   id        String    @id @default(uuid())
+//   name      String    
+//   // products  Product[]
+//   foodId    String
+//   // food      Food      @relation(fields: [foodId], references: [id])
+//   createdAt DateTime  @default(now())
+//   updatedAt DateTime  @updatedAt
+// }
 
-model FoodImage {
-  id        String   @id @default(uuid())
-  foodId    String
-  // food      Food     @relation(fields: [foodId], references: [id])
-  url       String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+// model FoodType {
+//   id        String   @id @default(uuid())
+//   name      String   
+//   foodId    String
+//   // food      Food     @relation(fields: [foodId], references: [id])
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+// }
+
+// model FoodImage {
+//   id        String   @id @default(uuid())
+//   foodId    String
+//   // food      Food     @relation(fields: [foodId], references: [id])
+//   url       String
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+// }
 
 
-// phụ gia
-model Additives {
-  id        String   @id @default(uuid())
-  title     String
-  price     Float
-  foodId    String
-  // food      Food?     @relation(fields: [foodId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+// // phụ gia
+// model Additives {
+//   id        String   @id @default(uuid())
+//   title     String
+//   price     Float
+//   foodId    String
+//   // food      Food?     @relation(fields: [foodId], references: [id])
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+// }
 
 model Rating {
   id           String     @id @default(uuid())
-  orderId      String     @unique
-  order        Order      @relation(fields: [orderId], references: [id])
   userId       String
   user         User       @relation(fields: [userId], references: [id])
-  restaurantId String // Changed from storeId
-  restaurant   Restaurant @relation("RestaurantRating", fields: [restaurantId], references: [id])
-  foodId       String
-  // food         Food       @relation("FoodRating", fields: [foodId], references: [id])
+  restaurantId String?
+  restaurant   Restaurant? @relation("RestaurantRating", fields: [restaurantId], references: [id])
+  foodId       String?
+  food         Food?       @relation("FoodRating", fields: [foodId], references: [id])
+  driverId     String?
+  driver       Driver?     @relation("DriverRating", fields: [driverId], references: [id])
   rating       Float
-  ratingCount  Int        @default(0)
+  ratingType   RatingType     
   comment      String?
   createdAt    DateTime   @default(now())
-
+  
   @@index([userId])
   @@index([restaurantId])
   @@index([foodId])
+  @@index([driverId])
 }
 
+
+model Driver {
+  id          String     @id @default(uuid())
+  name        String
+  phone       String
+  rating      Float      @default(0)
+  ratingCount Int        @default(0)
+  ratings     Rating[]   @relation("DriverRating")
+  orders      Order[]    @relation("DriverOrder")
+  createdAt   DateTime   @default(now())
+}
 
 model Cart {
   id        String     @id @default(uuid())
@@ -225,7 +249,8 @@ model Order {
   status          OrderStatus @default(PENDING)
   total           Float
   delivery        Delivery?
-  rating          Rating?
+  driverId        String?
+  driver          Driver?   @relation("DriverOrder", fields: [driverId], references: [id])  // rating          Rating?
   payment         Payment?
   shipperId       String?
   shipper         Shipper?    @relation("ShipperOrder", fields: [shipperId], references: [userId])

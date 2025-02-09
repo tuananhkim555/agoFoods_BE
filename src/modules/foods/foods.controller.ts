@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Param, Put, Delete, Query, UseInterceptors, UploadedFile, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Param, Put, Delete, Query, UseInterceptors, UploadedFile, Req, BadRequestException, Get } from '@nestjs/common';
 import { FoodsService } from './foods.service';
 import { CreateFoodDto } from './dto/create-food.dto';
 import { UpdateFoodDto } from './dto/update-food.dto';
@@ -40,7 +40,7 @@ export class FoodsController {
 
 
      // Search món ăn (nên nhớ đặt trước /:id)
-     @Get('search')
+     @Get('search/:search')
      @UseGuards(JwtAuthGuard)
      @ApiBearerAuth('JWT-auth')
      @ApiQuery({ name: 'text', required: true, description: 'Từ khóa tìm kiếm' })
@@ -76,7 +76,7 @@ export class FoodsController {
   }
 
  // Lấy món ăn theo id nhà hàng
-  @Get('byRestaurant/:id')
+  @Get('restaurant-foods/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   async getFoodsByRestaurant(@Param('id') id: string, @Query() query: { pageIndex?: number; pageSize?: number; }) {
@@ -84,12 +84,12 @@ export class FoodsController {
   }
 
   // Lấy món ăn theo danh mục và code
-  @Get('byCategory/:code/:category')
+  @Get('byCategory/:category/:code')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiParam({ name: 'code', required: true })
-  async getFoodsByCategoryAndCode(@Param('code') code: string, @Param('category') category: string, @Query() query: { pageIndex?: number; pageSize?: number }) {
-    return this.foodsService.getFoodsByCategoryAndCode(code, category, query);
+  async getFoodsByCategoryAndCode(@Param('category') category: string, @Param('code') code: string, @Query() query: { pageIndex?: number; pageSize?: number }) {
+    return this.foodsService.getFoodsByCategoryAndCode(category,code, query);
   }
 
 
@@ -114,5 +114,14 @@ export class FoodsController {
   async deleteFood(@Param('id') id: string) {
     return this.foodsService.deleteFood(id);
   }
-}
 
+
+// Lấy món ăn ngẫu nhiên bởi danh mục và code
+@Get('random/:category/:code')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth('JWT-auth')
+async getRandomFoodsByCategoryAndCode(@Param('category') category: string, @Param('code') code: string) {
+  return this.foodsService.getRandomFoodsByCategoryAndCode(category, code);
+  }
+
+}

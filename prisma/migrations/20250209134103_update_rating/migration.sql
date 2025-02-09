@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `Food` ADD COLUMN `rating` DOUBLE NOT NULL DEFAULT 0;

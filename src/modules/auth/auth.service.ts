@@ -101,8 +101,6 @@ export class AuthService {
       });
 
       return {
-        statusCode: HttpStatus.CREATED,
-        message: 'Đăng ký thành công',
         data: user // Return full user object
       };
       

@@ -1,20 +1,26 @@
 import { Controller, Get, Post, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { RestaurantsService } from './restaurants.service';
-import { CreateRestaurantDto } from './dto/restaurants.dto';
+import { CreateRestaurantDto, RegisterRestaurant } from './dto/restaurants.dto';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Request } from 'express';
+
+
 
 @Controller('api/restaurants')
 export class RestaurantsController {
   constructor(private readonly restaurantsService: RestaurantsService) {}
 
-  // Tạo nhà hàng
-  @UseGuards(JwtAuthGuard)
+  // Đăng ký nhà hàng
   @ApiBearerAuth('JWT-auth')
-  @Post()
-  create(@Body() createRestaurantDto: CreateRestaurantDto) {
-    return this.restaurantsService.create(createRestaurantDto);
+  @UseGuards(JwtAuthGuard)
+  @Post('register')
+  register(
+    @Req() req: Request,
+    @Body() registerRestaurant: RegisterRestaurant) {
+    return this.restaurantsService.registerRestaurant(req, registerRestaurant);
   }
+
 
    // Lấy nhà hàng theo id
    @UseGuards(JwtAuthGuard)

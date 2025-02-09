@@ -36,6 +36,11 @@ export class CreateFoodDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
+  code: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
   categoryId: string;
 
   @ApiProperty()
@@ -47,11 +52,6 @@ export class CreateFoodDto {
   @IsBoolean()
   @IsNotEmpty()
   isAvailable: boolean;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  code: string;
 
   @ApiProperty()
   @IsString()
