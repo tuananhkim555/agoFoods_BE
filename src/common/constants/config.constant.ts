@@ -19,3 +19,9 @@ export const API_CONFIG = {
   DOC_URL: 'https://tuananhdev.click',
 };
 
+export const EMAIL_CONFIG = {
+    REGION: process.env.AWS_REGION,
+    ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+    SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+    EMAIL: process.env.AWS_SES_EMAIL,
+};

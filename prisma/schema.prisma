@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,32 +9,38 @@ datasource db {
 
 // User Module
 model User {
-  id        String   @id
-  email     String   @unique
-  password  String
-  phone     String   @unique
-  fullName  String
-  avatar    String?
-  role      Role     @default(CUSTOMER)
-  isActive  Boolean  @default(false)
-  balance   Float    @default(0)
-  gender    Gender
-  birthday  String?
-  status    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String   @id
+  email               String   @unique
+  password            String
+  resetPasswordToken  String?  @unique
+  phone               String   @unique
+  fullName            String
+  avatar              String?
+  role                Role     @default(CUSTOMER)
+  isActive            Boolean  @default(false)
+  balance             Float    @default(0)
+  gender              Gender
+  birthday            String?
+  status              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Email verification fields
+  isVerified          Boolean  @default(false)
+  verifyToken         String?  @unique
+  verifyTokenExpiresAt DateTime?
 
   // Relations
-  restaurants Restaurant[] @relation("UserRestaurants")
-  shipper       Shipper?
-  transactions  Transaction[]
-  orders        Order[] 
-  cart          Cart?
-  notifications Notification[]
-  chats         Chat[]
-  ratings       Rating[]
-  comments      Comment[]
-  deliveries    Delivery[]
+  restaurants         Restaurant[] @relation("UserRestaurants")
+  shipper             Shipper?
+  transactions        Transaction[]
+  orders              Order[] 
+  cart                Cart?
+  notifications       Notification[]
+  chats               Chat[]
+  ratings             Rating[]
+  comments            Comment[]
+  deliveries          Delivery[]
 }
 
 enum Role {
@@ -144,47 +147,6 @@ model Food {
   @@index([code])
 }
 
-
-// model FoodTag {
-//   id        String    @id @default(uuid())
-//   name      String    
-//   // products  Product[]
-//   foodId    String
-//   // food      Food      @relation(fields: [foodId], references: [id])
-//   createdAt DateTime  @default(now())
-//   updatedAt DateTime  @updatedAt
-// }
-
-// model FoodType {
-//   id        String   @id @default(uuid())
-//   name      String   
-//   foodId    String
-//   // food      Food     @relation(fields: [foodId], references: [id])
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }
-
-// model FoodImage {
-//   id        String   @id @default(uuid())
-//   foodId    String
-//   // food      Food     @relation(fields: [foodId], references: [id])
-//   url       String
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }
-
-
-// // phụ gia
-// model Additives {
-//   id        String   @id @default(uuid())
-//   title     String
-//   price     Float
-//   foodId    String
-//   // food      Food?     @relation(fields: [foodId], references: [id])
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }
-
 model Rating {
   id           String     @id @default(uuid())
   userId       String
@@ -205,7 +167,6 @@ model Rating {
   @@index([foodId])
   @@index([driverId])
 }
-
 
 model Driver {
   id          String     @id @default(uuid())
@@ -365,7 +326,6 @@ model Product {
   imageUrls    String     @db.Text
   categoryId   String
   category     Categories @relation(fields: [categoryId], references: [id])
-  // foodTags     FoodTag[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 }
@@ -420,7 +380,3 @@ enum TransactionStatus {
   REJECTED
   CANCELLED
 }
-
-
-
-

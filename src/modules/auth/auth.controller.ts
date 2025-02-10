@@ -1,7 +1,7 @@
-import { Controller, Post, Body, Headers, Patch, Param } from '@nestjs/common';
+import { Controller, Post, Body, Headers, Patch, Param, Query, Get } from '@nestjs/common';
 import {  LoginDto, RegisterDto } from './dto/auth.dto';
 import { AuthService } from './auth.service';
-import { ApiBody, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiExcludeEndpoint, ApiResponse } from '@nestjs/swagger';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 import { UseGuards } from '@nestjs/common';
 import { ApiKeyGuard } from 'src/common/guards/api-key.guard';
@@ -17,9 +17,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
   
   // Register
-  @ApiBody({
-    type:RegisterDto
-  })
+  @ApiBody({ type:RegisterDto })
   @Post('register')
   @ApiResponse({
     status: 200,
@@ -34,9 +32,7 @@ export class AuthController {
   }
 
   // Login
-  @ApiBody({
-    type: LoginDto
-  })
+  @ApiBody({ type: LoginDto })
   @Post('login')
   @ApiResponse({
     status: 200,
@@ -58,4 +54,39 @@ export class AuthController {
   ) {
     return this.authService.setAdminRole(userId, apiKey);
   }
+
+  // Xác thực email
+  @Public()
+  @Get('verify-email')
+  async verifyEmail(@Query('token') token: string) {
+    return this.authService.verifyEmail(token);
+  }
+
+  // Lấy lại mật khẩu
+  @Public()
+  @Post('forgot-password')
+  @ApiExcludeEndpoint() 
+  async forgotPassword(@Body('email') email: string) {
+    return this.authService.forgotPassword(email);
+  }
+
+  @Public()
+  // Reset mật khẩu
+  @Patch('reset-password')
+  @ApiExcludeEndpoint() 
+  async resetPassword(@Query('token') token: string, @Body('newPassword') newPassword: string) {
+    return this.authService.resetPassword(token, newPassword);
+  }
+  
+
+
+  // Đăng xuất
+@Public()
+@Post('logout')
+@ApiExcludeEndpoint() 
+async logoutWithToken(@Headers('authorization') token: string) {
+  return this.authService.logoutWithToken(token);
+}
+
+
 }
