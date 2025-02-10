@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { IdGenerator } from 'src/common/helpers/id-generator.helper';
 import { EmailService } from './email.service';
 import { v4 as uuidv4 } from 'uuid';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class AuthService {
@@ -81,6 +82,7 @@ async register(userData: RegisterDto, appSource: string) {
         phone: userData.phone,
         password: hashPassword,
         fullName: userData.fullName,
+        address: userData.address,
         gender: userData.gender,
         birthday: userData.birthday,
         role: userData.role,
@@ -249,18 +251,39 @@ async verifyEmail(token: string): Promise<void> {
   }
 
   // Reset Password
-  async resetPassword(token: string, newPassword: string) {
-    const user = await this.prisma.user.findFirst({ where: { resetPasswordToken: token } });
-    if (!user) throw new HttpException('Token không hợp lệ', HttpStatus.BAD_REQUEST);
-
-    const hashedPassword = await hash(newPassword, 10);
+  async resetPassword(email: string, newPassword: string): Promise<any> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+  
+    if (!user) {
+      throw new Error('User not found');
+    }
+  
+    // Tạo một token duy nhất
+    const resetToken = uuidv4();
+  
+    // Lưu token vào cơ sở dữ liệu
     await this.prisma.user.update({
-      where: { id: user.id },
-      data: { password: hashedPassword, resetPasswordToken: null },
+      where: { email },
+      data: {
+        resetPasswordToken: resetToken,
+      },
     });
-
-    return { message: 'Mật khẩu đã được đặt lại thành công' };
-}
+  
+    // Gửi email với đường link reset mật khẩu
+    const resetUrl = `http://localhost:3000/api/auth/reset-password?token=${resetToken}`;
+  
+    const transporter = nodemailer.createTransport({
+      // Cấu hình SMTP của bạn ở đây
+    });
+  
+    await transporter.sendMail({
+      to: email,
+      subject: 'Password Reset Request',
+      text: `To reset your password, please click the following link: ${resetUrl}`,
+    });
+  
+    return { message: 'Reset password email sent' };
+  }
 
   // Đăng xuất
   async logoutWithToken(token: string) {

@@ -32,6 +32,11 @@ export class RegisterDto {
   @IsNotEmpty({ message: 'Họ tên không được để trống' })
   fullName: string;
 
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  address: string;
+
   @ApiProperty({ enum: Gender, enumName: 'Gender' })
   @IsEnum(Gender, {
     message: 'Giới tính phải là một trong các giá trị: MALE, FEMALE, OTHER'

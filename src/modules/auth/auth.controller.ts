@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Headers, Patch, Param, Query, Get } from '@nestjs/common';
 import {  LoginDto, RegisterDto } from './dto/auth.dto';
 import { AuthService } from './auth.service';
-import { ApiBearerAuth, ApiBody, ApiExcludeEndpoint, ApiResponse } from '@nestjs/swagger';
+import { ApiBody, ApiExcludeEndpoint, ApiResponse } from '@nestjs/swagger';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 import { UseGuards } from '@nestjs/common';
 import { ApiKeyGuard } from 'src/common/guards/api-key.guard';
@@ -62,7 +62,7 @@ export class AuthController {
     return this.authService.verifyEmail(token);
   }
 
-  // Lấy lại mật khẩu
+  // Quên mật khẩu
   @Public()
   @Post('forgot-password')
   @ApiExcludeEndpoint() 
@@ -70,9 +70,11 @@ export class AuthController {
     return this.authService.forgotPassword(email);
   }
 
-  @Public()
+  
   // Reset mật khẩu
+ 
   @Patch('reset-password')
+  @Public()
   @ApiExcludeEndpoint() 
   async resetPassword(@Query('token') token: string, @Body('newPassword') newPassword: string) {
     return this.authService.resetPassword(token, newPassword);

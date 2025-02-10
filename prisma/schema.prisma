@@ -8,39 +8,39 @@ datasource db {
 }
 
 // User Module
-model User {
-  id                  String   @id
-  email               String   @unique
-  password            String
-  resetPasswordToken  String?  @unique
-  phone               String   @unique
-  fullName            String
-  avatar              String?
-  role                Role     @default(CUSTOMER)
-  isActive            Boolean  @default(false)
-  balance             Float    @default(0)
-  gender              Gender
-  birthday            String?
-  status              Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
 
-  // Email verification fields
-  isVerified          Boolean  @default(false)
-  verifyToken         String?  @unique
+model User {
+  id                   String    @id
+  email                String    @unique
+  password             String
+  phone                String    @unique
+  fullName             String
+  address              String?
+  avatar               String?
+  role                 Role      @default(CUSTOMER)
+  isActive             Boolean   @default(false)
+  balance              Float     @default(0)
+  gender               Gender
+  birthday             String?
+  status               Boolean   @default(true)
+  resetPasswordToken   String?   @unique
+  isVerified           Boolean   @default(false)
+  verifyToken          String?   @unique
   verifyTokenExpiresAt DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   // Relations
-  restaurants         Restaurant[] @relation("UserRestaurants")
-  shipper             Shipper?
-  transactions        Transaction[]
-  orders              Order[] 
-  cart                Cart?
-  notifications       Notification[]
-  chats               Chat[]
-  ratings             Rating[]
-  comments            Comment[]
-  deliveries          Delivery[]
+  restaurants   Restaurant[]   @relation("UserRestaurants")
+  shipper       Shipper?
+  transactions  Transaction[]
+  orders        Order[]
+  cart          Cart?
+  notifications Notification[]
+  chats         Chat[]
+  ratings       Rating[]
+  comments      Comment[]
+  deliveries    Delivery[]
 }
 
 enum Role {
@@ -68,7 +68,7 @@ model Restaurant {
   title               String
   time                String
   imageUrl            String
-  avatar              String   // ✅ Thêm ảnh đại diện nhà hàng
+  avatar              String // ✅ Thêm ảnh đại diện nhà hàng
   idCard              String   @unique // ✅ Thêm số chứng minh nhà hàng
   userId              String   @unique
   user                User     @relation("UserRestaurants", fields: [userId], references: [id], onDelete: Cascade)
@@ -86,8 +86,8 @@ model Restaurant {
   isVerified          Boolean  @default(false)
   isAvailable         Boolean  @default(true)
   coords              Json
-  reportCount         Int      @default(0)      // Số lần bị báo cáo
-  isBanned            Boolean  @default(false)   // Bị cấm hoạt động
+  reportCount         Int      @default(0) // Số lần bị báo cáo
+  isBanned            Boolean  @default(false) // Bị cấm hoạt động
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   version             Int      @default(0) @map("_v")
@@ -113,18 +113,17 @@ model Categories {
   foods    Food[]
 }
 
-
 // Food Module
 model Food {
-  id           String      @id @default(uuid())
+  id           String     @id @default(uuid())
   restaurantId String
-  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   title        String
   time         String
   price        Float
   description  String?
   categoryId   String
-  category     Categories  @relation(fields: [categoryId], references: [id])
+  category     Categories @relation(fields: [categoryId], references: [id])
   foodTags     Json?      @default("[]")
   foodType     Json?      @default("[]")
   additives    Json?      @default("[]")
@@ -148,9 +147,9 @@ model Food {
 }
 
 model Rating {
-  id           String     @id @default(uuid())
+  id           String      @id @default(uuid())
   userId       String
-  user         User       @relation(fields: [userId], references: [id])
+  user         User        @relation(fields: [userId], references: [id])
   restaurantId String?
   restaurant   Restaurant? @relation("RestaurantRating", fields: [restaurantId], references: [id])
   foodId       String?
@@ -158,10 +157,10 @@ model Rating {
   driverId     String?
   driver       Driver?     @relation("DriverRating", fields: [driverId], references: [id])
   rating       Float
-  ratingType   RatingType     
+  ratingType   RatingType
   comment      String?
-  createdAt    DateTime   @default(now())
-  
+  createdAt    DateTime    @default(now())
+
   @@index([userId])
   @@index([restaurantId])
   @@index([foodId])
@@ -169,14 +168,14 @@ model Rating {
 }
 
 model Driver {
-  id          String     @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
   phone       String
-  rating      Float      @default(0)
-  ratingCount Int        @default(0)
-  ratings     Rating[]   @relation("DriverRating")
-  orders      Order[]    @relation("DriverOrder")
-  createdAt   DateTime   @default(now())
+  rating      Float    @default(0)
+  ratingCount Int      @default(0)
+  ratings     Rating[] @relation("DriverRating")
+  orders      Order[]  @relation("DriverOrder")
+  createdAt   DateTime @default(now())
 }
 
 model Cart {
@@ -211,7 +210,7 @@ model Order {
   total           Float
   delivery        Delivery?
   driverId        String?
-  driver          Driver?   @relation("DriverOrder", fields: [driverId], references: [id])  // rating          Rating?
+  driver          Driver?     @relation("DriverOrder", fields: [driverId], references: [id]) // rating          Rating?
   payment         Payment?
   shipperId       String?
   shipper         Shipper?    @relation("ShipperOrder", fields: [shipperId], references: [userId])
@@ -329,7 +328,6 @@ model Product {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 }
-
 
 model Delivery {
   id        String   @id @default(uuid())
