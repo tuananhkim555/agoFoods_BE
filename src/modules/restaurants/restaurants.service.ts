@@ -1,22 +1,9 @@
-import { Injectable, BadRequestException, ConflictException, NotFoundException, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from 'src/common/prisma/prisma.service';
-import { Additive, CoordsDto, CreateRestaurantDto, FoodTags, FoodType, RegisterRestaurant } from './dto/restaurants.dto';
+import { Additive, CoordsDto,FoodTags, FoodType, RegisterRestaurant } from './dto/restaurants.dto';
 import { JsonParser } from 'src/common/helpers/json-parser';
-import { Prisma } from '@prisma/client';
-import { InputJsonValue } from '@prisma/client/runtime/library';
+import { Prisma, Role } from '@prisma/client';
 
-const CREATE_SELECT_FIELDS = {
-  id: true,
-  title: true,
-  time: true,
-  imageUrl: true,
-  userId: true,
-  code: true,
-  logoUrl: true,
-  rating: true,
-  ratingCount: true,
-  coords: true,
-};
 
 function safeJsonParse(value: string): any {
   try {
@@ -68,23 +55,19 @@ private formatCoords(coords: any): CoordsDto | null {
   return null;
 }
 
-
-// đăng ký cửa hàng
+// Đăng ký cửa hàng
 async registerRestaurant(req: any, registerRestaurant: RegisterRestaurant) {
   const restaurantId = await this.generateRestaurantId();
-  
-  // Kiểm tra user có quyền đăng ký nhà hàng cho user khác không
+
   if (req['user'].id !== registerRestaurant.userId) {
     throw new ForbiddenException('Bạn không có quyền đăng ký nhà hàng cho user khác.');
   }
 
-  // Kiểm tra mã CCCD hợp lệ
   const idCardRegex = /^(0\d{2}|10\d{2})[0-9]{1}[0-9]{2}[0-9]{6}$/;
   if (!idCardRegex.test(registerRestaurant.idCard)) {
     throw new BadRequestException('idCard không hợp lệ. Vui lòng nhập đúng CCCD Việt Nam.');
   }
 
-  // Kiểm tra các trường bắt buộc
   if (
     !registerRestaurant.title?.trim() || 
     !registerRestaurant.imageUrl?.trim() || 
@@ -94,23 +77,20 @@ async registerRestaurant(req: any, registerRestaurant: RegisterRestaurant) {
   ) {
     throw new BadRequestException('Cần có ảnh đại diện, logo và mô tả để đăng ký.');
   }
-  
 
   if (!registerRestaurant.pickup && !registerRestaurant.delivery) {
     throw new BadRequestException('Cửa hàng cần có ít nhất một hình thức bán hàng.');
   }
 
-  // ✅ Kiểm tra `code` có tồn tại không
   const existingCode = await this.prisma.restaurant.findFirst({
     where: { code: registerRestaurant.code },
   });
-  
+
   if (existingCode) {
     throw new BadRequestException('Mã cửa hàng đã tồn tại, vui lòng chọn mã khác.');
   }
-  
 
-  // ✅ Nếu `code` hợp lệ, tự động duyệt nhà hàng
+  // ✅ Tạo nhà hàng mới
   const newRestaurant = await this.prisma.restaurant.create({
     data: {
       id: restaurantId,
@@ -118,7 +98,6 @@ async registerRestaurant(req: any, registerRestaurant: RegisterRestaurant) {
       imageUrl: registerRestaurant.imageUrl,
       userId: registerRestaurant.userId,
       idCard: registerRestaurant.idCard,
-      avatar: registerRestaurant.avatar,
       logoUrl: registerRestaurant.logoUrl,
       description: registerRestaurant.description,
       pickup: registerRestaurant.pickup,
@@ -126,23 +105,29 @@ async registerRestaurant(req: any, registerRestaurant: RegisterRestaurant) {
       time: registerRestaurant.time || '08:00 - 22:00',
       code: registerRestaurant.code,
       coords: registerRestaurant.coords
-  ? ({
-      id: registerRestaurant.coords.id,
-      title: registerRestaurant.coords.title,
-      latitude: registerRestaurant.coords.latitude,
-      longitude: registerRestaurant.coords.longitude,
-      address: registerRestaurant.coords.address,
-      latitudeDelta: registerRestaurant.coords.latitudeDelta || 0.0122,
-      longtitudeDelta: registerRestaurant.coords.longtitudeDelta || 0.0122,
-    } as Prisma.JsonObject) // ✅ Đảm bảo kiểu dữ liệu đúng
-  : Prisma.JsonNull,
-   
-           
+        ? ({
+            id: registerRestaurant.coords.id,
+            title: registerRestaurant.coords.title,
+            latitude: registerRestaurant.coords.latitude,
+            longitude: registerRestaurant.coords.longitude,
+            address: registerRestaurant.coords.address,
+            latitudeDelta: registerRestaurant.coords.latitudeDelta || 0.0122,
+            longtitudeDelta: registerRestaurant.coords.longtitudeDelta || 0.0122,
+          } as Prisma.JsonObject)
+        : Prisma.JsonNull,
 
-      // ✅ Tự động duyệt nhà hàng
       isVerified: true,
       verification: 'Approved',
       verificationMessage: 'Nhà hàng đã được xác minh tự động.',
+    },
+  });
+
+  // ✅ Cập nhật role của user thành RESTAURANT
+  await this.prisma.user.update({
+    where: { id: registerRestaurant.userId },
+    data: {
+      role: Role.RESTAURANTS,
+      isRestaurantVerified: true,
     },
   });
 
@@ -151,6 +136,7 @@ async registerRestaurant(req: any, registerRestaurant: RegisterRestaurant) {
     restaurant: newRestaurant,
   };
 }
+
 
   // Lấy thông tin nhà hàng theo id
   async getRestaurantById(id: string) {

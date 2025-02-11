@@ -66,11 +66,7 @@ export class CreateRestaurantDto {
   @IsString()
   description: string;
 
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  avatar: string;
-
+  
   @ApiProperty({ example: '079203001234' }) // Ví dụ số CCCD hợp lệ
   @IsNotEmpty({ message: 'idCard không được để trống' })
   @IsNumberString({}, { message: 'idCard chỉ được chứa số' })

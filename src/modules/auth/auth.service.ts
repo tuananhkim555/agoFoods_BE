@@ -1,6 +1,6 @@
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { HttpException, HttpStatus, Injectable, UnauthorizedException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
-import { RegisterDto } from './dto/auth.dto';
+import { RegisterDto, RegisterShipperDto } from './dto/auth.dto';
 import {  Role } from '@prisma/client';
 import { hash, compare } from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
@@ -9,6 +9,10 @@ import { IdGenerator } from 'src/common/helpers/id-generator.helper';
 import { EmailService } from './email.service';
 import { v4 as uuidv4 } from 'uuid';
 import * as nodemailer from 'nodemailer';
+import { JsonParser } from 'src/common/helpers/json-parser';
+import {  InputJsonObject } from '@prisma/client/runtime/library';
+import { format } from 'date-fns';
+
 
 @Injectable()
 export class AuthService {
@@ -21,28 +25,107 @@ export class AuthService {
   ) {}
 
   // Đăng ký tài khoản
-async register(userData: RegisterDto, appSource: string) {
-  try {
-    let autoRole: Role;
-    switch (appSource) {
-      case 'FOOD_APP':
-        autoRole = Role.CUSTOMER;
-        break;
-      case 'SHIPPER_APP':
-        autoRole = Role.SHIPPER;
-        break;
-      default:
+  async register(userData: RegisterDto) {
+    try {
+      // Gán role mặc định là Customer hoặc có thể là tùy chỉnh cho shipper hoặc nhà hàng
+      let autoRole: Role = Role.CUSTOMER;  // Đặt mặc định là CUSTOMER nếu không có appSource
+  
+      // Kiểm tra sự tồn tại của email
+      const emailExists = await this.prisma.user.findUnique({
+        where: { email: userData.email }
+      });
+      if (emailExists) {
         throw new HttpException({
           statusCode: HttpStatus.BAD_REQUEST,
-          message: 'Nguồn request không hợp lệ',
+          message: 'Email đã được sử dụng',
           error: 'Bad Request'
         }, HttpStatus.BAD_REQUEST);
+      }
+  
+      // Kiểm tra sự tồn tại của số điện thoại
+      const phoneExists = await this.prisma.user.findUnique({
+        where: { phone: userData.phone }
+      });
+      if (phoneExists) {
+        throw new HttpException({
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Số điện thoại đã được sử dụng',
+          error: 'Bad Request'
+        }, HttpStatus.BAD_REQUEST);
+      }
+  
+      // Kiểm tra họ tên và ngày sinh
+      if (!userData.fullName || !userData.birthday) {
+        throw new HttpException({
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Họ tên và ngày sinh không được để trống',
+          error: 'Bad Request'
+        }, HttpStatus.BAD_REQUEST);
+      }
+  
+      // Mã hóa mật khẩu
+      const hashPassword = await hash(userData.password, 10);
+  
+      // Tạo id tùy chỉnh cho người dùng
+      const customId = await IdGenerator.generateUserId(autoRole, this.prisma);
+  
+      // Tạo người dùng mới trong cơ sở dữ liệu
+      const user = await this.prisma.user.create({
+        data: {
+          id: customId,
+          email: userData.email, 
+          phone: userData.phone,
+          password: hashPassword,
+          fullName: userData.fullName,
+          address: JsonParser.safeJsonParse<InputJsonObject>(userData.address),
+          gender: userData.gender,
+          birthday: format(new Date(userData.birthday), 'dd-MM-yyyy'),
+          role: autoRole,  // Gán role mặc định là CUSTOMER hoặc tùy chỉnh
+          isActive: false,
+          status: true,
+          verifyToken: uuidv4(),
+        }
+      });
+  
+      // Gửi email xác thực
+      if (user.verifyToken) {
+        await this.emailService.sendVerificationEmail(userData.email, user.verifyToken);
+      } else {
+        throw new HttpException({
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Mã xác thực không hợp lệ',
+          error: 'Bad Request'
+        }, HttpStatus.BAD_REQUEST);
+      }
+  
+      return { data: user };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+  
+      if (error.code === 'P2002') {
+        throw new HttpException({
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Số điện thoại hoặc email đã được sử dụng',
+          error: 'Bad Request'
+        }, HttpStatus.BAD_REQUEST);
+      }
+  
+      throw new HttpException({
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Có lỗi xảy ra khi tạo tài khoản',
+        error: 'Internal Server Error'
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
-    userData.role = autoRole;
-
+  }
+  
+// Đăng ký shipper 
+async registerShipper(registerShipperDto: RegisterShipperDto) {
+  try {
+    // Kiểm tra sự tồn tại của email
     const emailExists = await this.prisma.user.findUnique({
-      where: { email: userData.email }
+      where: { email: registerShipperDto.email }
     });
     if (emailExists) {
       throw new HttpException({
@@ -52,8 +135,9 @@ async register(userData: RegisterDto, appSource: string) {
       }, HttpStatus.BAD_REQUEST);
     }
 
+    // Kiểm tra sự tồn tại của số điện thoại
     const phoneExists = await this.prisma.user.findUnique({
-      where: { phone: userData.phone }
+      where: { phone: registerShipperDto.phone }
     });
     if (phoneExists) {
       throw new HttpException({
@@ -63,64 +147,84 @@ async register(userData: RegisterDto, appSource: string) {
       }, HttpStatus.BAD_REQUEST);
     }
 
-    if (!userData.fullName || !userData.birthday) {
+    // Kiểm tra giấy phép lái xe và biển số xe của shipper
+    if (!registerShipperDto.licenseNumber || !registerShipperDto.licensePlate) {
       throw new HttpException({
         statusCode: HttpStatus.BAD_REQUEST,
-        message: 'Họ tên và ngày sinh không được để trống',
+        message: 'Giấy phép lái xe và biển số xe không được để trống',
         error: 'Bad Request'
       }, HttpStatus.BAD_REQUEST);
     }
 
-    const hashPassword = await hash(userData.password, 10);
+    // Mã hóa mật khẩu
+    const hashPassword = await hash(registerShipperDto.password, 10);
 
-    const customId = await IdGenerator.generateUserId(userData.role, this.prisma);
+    // Tạo id tùy chỉnh cho shipper
+    const customId = await IdGenerator.generateUserId(Role.SHIPPER, this.prisma);
 
-    const user = await this.prisma.user.create({
-      data: {
-        id: customId,
-        email: userData.email,  // Không hash email
-        phone: userData.phone,
-        password: hashPassword,
-        fullName: userData.fullName,
-        address: userData.address,
-        gender: userData.gender,
-        birthday: userData.birthday,
-        role: userData.role,
-        isActive: false,
-        status: true,
-        verifyToken: uuidv4(),
-      }
+    // Kiểm tra lại thông tin địa chỉ
+    if (!registerShipperDto.address || !registerShipperDto.address.street || !registerShipperDto.address.districtOrCity || !registerShipperDto.address.ward) {
+      throw new HttpException({
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: 'Địa chỉ không hợp lệ',
+        error: 'Bad Request'
+      }, HttpStatus.BAD_REQUEST);
+    }
+
+    // 🛠 **Tạo user và shipper trong cùng một transaction**
+    const shipper = await this.prisma.$transaction(async (tx) => {
+      // Tạo user
+      const user = await tx.user.create({
+        data: {
+          id: customId,
+          email: registerShipperDto.email,
+          phone: registerShipperDto.phone,
+          password: hashPassword,
+          fullName: registerShipperDto.fullName,
+          address: JsonParser.safeJsonParse<InputJsonObject>(registerShipperDto.address),
+          gender: registerShipperDto.gender,
+          birthday: format(new Date(registerShipperDto.birthday), 'yyyy-MM-dd'),
+          role: Role.SHIPPER,
+          isActive: false,
+          status: true,
+          verifyToken: uuidv4(),
+          walletBalance: 0,
+        }
+      });
+
+      // 🛠 **Tạo shipper gắn với user**
+      await tx.shipper.create({
+        data: {
+          userId: user.id, 
+          licenseNumber: registerShipperDto.licenseNumber,
+          licensePlate: registerShipperDto.licensePlate,
+          avatar: registerShipperDto.avatar,
+          idCardFront: registerShipperDto.idCardFront,
+          idCardBack: registerShipperDto.idCardBack,
+          licenseImage: registerShipperDto.licenseImage,
+          birthday: format(new Date(registerShipperDto.birthday), 'yyyy-MM-dd'),
+          vehicleType: registerShipperDto.vehicleType, 
+        }
+      });
+      
+
+      return user;
     });
 
     // Gửi email xác thực
-    if (user.verifyToken) {
-      await this.emailService.sendVerificationEmail(userData.email, user.verifyToken);
-    } else {
-      throw new HttpException({
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: 'Mã xác thực không hợp lệ',
-        error: 'Bad Request'
-      }, HttpStatus.BAD_REQUEST);
+    if (shipper.verifyToken) {
+      console.log('Sending verification email to:', registerShipperDto.email);
+      await this.emailService.sendVerificationEmail(registerShipperDto.email, shipper.verifyToken);
     }
-      // Gửi email tới email gốc
 
-    return { data: user };
+    return {
+      message: 'Đăng ký thành công, vui lòng kiểm tra email để xác thực tài khoản'
+    };
   } catch (error) {
-    if (error instanceof HttpException) {
-      throw error;
-    }
-
-    if (error.code === 'P2002') {
-      throw new HttpException({
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: 'Số điện thoại hoặc email đã được sử dụng',
-        error: 'Bad Request'
-      }, HttpStatus.BAD_REQUEST);
-    }
-
+    console.error('Error registering shipper:', error);
     throw new HttpException({
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: 'Có lỗi xảy ra khi tạo tài khoản',
+      message: 'Đã xảy ra lỗi khi đăng ký tài xế',
       error: 'Internal Server Error'
     }, HttpStatus.INTERNAL_SERVER_ERROR);
   }

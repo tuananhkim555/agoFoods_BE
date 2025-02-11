@@ -3,9 +3,9 @@ CREATE TABLE `User` (
     `id` VARCHAR(191) NOT NULL,
     `email` VARCHAR(191) NOT NULL,
     `password` VARCHAR(191) NOT NULL,
-    `resetPasswordToken` VARCHAR(191) NULL,
     `phone` VARCHAR(191) NOT NULL,
     `fullName` VARCHAR(191) NOT NULL,
+    `address` JSON NULL,
     `avatar` VARCHAR(191) NULL,
     `role` ENUM('ADMIN', 'CUSTOMER', 'RESTAURANTS', 'SHIPPER') NOT NULL DEFAULT 'CUSTOMER',
     `isActive` BOOLEAN NOT NULL DEFAULT false,
@@ -13,17 +13,35 @@ CREATE TABLE `User` (
     `gender` ENUM('MALE', 'FEMALE', 'OTHER') NOT NULL,
     `birthday` VARCHAR(191) NULL,
     `status` BOOLEAN NOT NULL DEFAULT true,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
+    `resetPasswordToken` VARCHAR(191) NULL,
     `isVerified` BOOLEAN NOT NULL DEFAULT false,
     `verifyToken` VARCHAR(191) NULL,
     `verifyTokenExpiresAt` DATETIME(3) NULL,
-    `address` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+    `idCard` VARCHAR(191) NULL,
+    `licenseNumber` VARCHAR(191) NULL,
+    `isRestaurantVerified` BOOLEAN NOT NULL DEFAULT false,
+    `isShipperVerified` BOOLEAN NOT NULL DEFAULT false,
 
     UNIQUE INDEX `User_email_key`(`email`),
-    UNIQUE INDEX `User_resetPasswordToken_key`(`resetPasswordToken`),
     UNIQUE INDEX `User_phone_key`(`phone`),
+    UNIQUE INDEX `User_resetPasswordToken_key`(`resetPasswordToken`),
     UNIQUE INDEX `User_verifyToken_key`(`verifyToken`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `UserAddress` (
+    `id` VARCHAR(191) NOT NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `addressLine1` VARCHAR(191) NOT NULL,
+    `addressLine2` VARCHAR(191) NULL,
+    `postCode` VARCHAR(191) NOT NULL,
+    `latitude` DOUBLE NOT NULL,
+    `longitude` DOUBLE NOT NULL,
+    `deliveryInstructions` VARCHAR(191) NULL,
+
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -315,6 +333,9 @@ CREATE TABLE `Transaction` (
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- AddForeignKey
+ALTER TABLE `UserAddress` ADD CONSTRAINT `UserAddress_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Restaurant` ADD CONSTRAINT `Restaurant_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

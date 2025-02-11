@@ -7,41 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User Module
-
-model User {
-  id                   String    @id
-  email                String    @unique
-  password             String
-  phone                String    @unique
-  fullName             String
-  address              String?
-  avatar               String?
-  role                 Role      @default(CUSTOMER)
-  isActive             Boolean   @default(false)
-  balance              Float     @default(0)
-  gender               Gender
-  birthday             String?
-  status               Boolean   @default(true)
-  resetPasswordToken   String?   @unique
-  isVerified           Boolean   @default(false)
-  verifyToken          String?   @unique
-  verifyTokenExpiresAt DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-
-  // Relations
-  restaurants   Restaurant[]   @relation("UserRestaurants")
-  shipper       Shipper?
-  transactions  Transaction[]
-  orders        Order[]
-  cart          Cart?
-  notifications Notification[]
-  chats         Chat[]
-  ratings       Rating[]
-  comments      Comment[]
-  deliveries    Delivery[]
-}
 
 enum Role {
   ADMIN
@@ -62,13 +27,71 @@ enum RatingType {
   Food
 }
 
+// User Module
+model User {
+  id                   String    @id
+  email                String    @unique
+  password             String
+  phone                String    @unique
+  fullName             String
+  address              Json?     // Có thể là địa chỉ tổng quát của người dùng (nếu cần)
+  avatar               String?   // Avatar của người dùng (dùng chung cho shipper, nhà hàng, khách hàng)
+  role                 Role      @default(CUSTOMER)
+  isActive             Boolean   @default(false)
+  balance              Float     @default(0)
+  gender               Gender
+  birthday             String?
+  idCard               String?   // ID Card cho những người có liên quan (nhà hàng, shipper)
+  licenseNumber        String?   // Giấy phép kinh doanh hoặc số giấy phép lái xe (shipper, nhà hàng)
+  licensePlate         String? 
+  walletBalance        Float    @default(0)
+  status               Boolean   @default(true)
+  resetPasswordToken   String?   @unique
+  isVerified           Boolean   @default(false)
+  verifyToken          String?   @unique
+  verifyTokenExpiresAt DateTime?
+
+  // Thêm các trường mới
+  isRestaurantVerified Boolean   @default(false) // Xác thực nhà hàng
+  isShipperVerified    Boolean   @default(false) // Xác thực shipper
+
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  // Relations
+  shipper       Shipper?       @relation(name: "ShipperToUser")
+  userAddresses UserAddress[]  // Liên kết với bảng UserAddress cho shipper, nhà hàng, khách hàng
+  restaurants   Restaurant[]   @relation("UserRestaurants")  // Liên kết với bảng nhà hàng
+  transactions  Transaction[]  // Liên kết với bảng giao dịch
+  orders        Order[]        // Liên kết với bảng đơn hàng
+  cart          Cart?          // Liên kết với giỏ hàng
+  notifications Notification[] // Liên kết với thông báo
+  chats         Chat[]         // Liên kết với chat
+  ratings       Rating[]       // Liên kết với đánh giá
+  comments      Comment[]      // Liên kết với bình luận
+  deliveries    Delivery[]     // Liên kết với giao hàng
+}
+
+model UserAddress {
+  id               String   @id
+  userId           String   // Liên kết với User
+  addressLine1     String
+  addressLine2     String?
+  postCode         String
+  latitude         Float
+  longitude        Float
+  deliveryInstructions String?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+
 // Model Restaurant 
 model Restaurant {
   id                  String   @id @default(uuid())
   title               String
   time                String
   imageUrl            String
-  avatar              String // ✅ Thêm ảnh đại diện nhà hàng
   idCard              String   @unique // ✅ Thêm số chứng minh nhà hàng
   userId              String   @unique
   user                User     @relation("UserRestaurants", fields: [userId], references: [id], onDelete: Cascade)
@@ -167,6 +190,49 @@ model Rating {
   @@index([driverId])
 }
 
+
+// model Shipper
+model Shipper {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(name: "ShipperToUser", fields: [userId], references: [id])
+  birthday        String?
+  vehicleType     String
+  licenseNumber   String? 
+  licensePlate    String? 
+  licenseImage    String?  // Ảnh giấy phép lái xe
+  idCardImage     String?  // Ảnh CMND (2 mặt)
+  avatar          String?
+  idCardFront     String?
+  idCardBack      String?
+  status          Boolean  @default(true) // Trạng thái hoạt động
+  isActive        Boolean  @default(true) // Trạng thái kích hoạt
+  latitude        Float?
+  longitude       Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  orders          Order[]  @relation("ShipperOrder")
+  walletBalance   Float    @default(0) // Ví tiền của shipper
+  rating          Float    @default(0)  // Đánh giá shipper (có thể tính từ các đơn hàng đã giao)
+  totalCompletedOrders Int @default(0) // Tổng số đơn hàng shipper đã hoàn thành
+  totalCancelledOrders Int @default(0) // Tổng số đơn hàng bị huỷ
+  lastActiveAt    DateTime? // Thời gian hoạt động gần nhất của shipper
+
+  shipperReview   ShipperReview[]
+}
+
+
+model ShipperReview {
+  id            String   @id @default(uuid())
+  shipperId     String
+  shipper       Shipper  @relation(fields: [shipperId], references: [id])
+  rating        Int      // Đánh giá từ 1-5
+  comment       String?  // Bình luận
+  createdAt     DateTime @default(now())
+}
+
+
+
 model Driver {
   id          String   @id @default(uuid())
   name        String
@@ -242,21 +308,6 @@ model OrderItem {
   price    Float
 }
 
-// Shipper Module
-model Shipper {
-  id           String   @id @default(uuid())
-  userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id])
-  vehicleType  String
-  licensePlate String
-  status       Boolean  @default(true)
-  isActive     Boolean  @default(true)
-  latitude     Float?
-  longitude    Float?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  orders       Order[]  @relation("ShipperOrder")
-}
 
 // Notification Module
 model Notification {

@@ -9,11 +9,11 @@ cloudinary.config({
   api_secret: CLOUDINARY_CONFIG.API_SECRET,
 });
 
-const storageUser = new CloudinaryStorage({
+const storageShipper = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'avatar-users',
+    folder: 'avatar-shipper',
   } as any,
 });
 
-export default storageUser;
+export default storageShipper;

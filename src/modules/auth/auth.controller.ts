@@ -1,7 +1,7 @@
-import { Controller, Post, Body, Headers, Patch, Param, Query, Get } from '@nestjs/common';
-import {  LoginDto, RegisterDto } from './dto/auth.dto';
+import { Controller, Post, Body, Headers, Patch, Param, Query, Get, UseInterceptors, BadRequestException } from '@nestjs/common';
+import {  LoginDto, RegisterDto, RegisterShipperDto } from './dto/auth.dto';
 import { AuthService } from './auth.service';
-import { ApiBody, ApiExcludeEndpoint, ApiResponse } from '@nestjs/swagger';
+import { ApiBody, ApiExcludeEndpoint, ApiResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 import { UseGuards } from '@nestjs/common';
 import { ApiKeyGuard } from 'src/common/guards/api-key.guard';
@@ -17,20 +17,29 @@ export class AuthController {
   constructor(private authService: AuthService) {}
   
   // Register
-  @ApiBody({ type:RegisterDto })
+  @ApiBody({ type: RegisterDto })
   @Post('register')
   @ApiResponse({
     status: 200,
     description: 'Success',
   })
   @Public() // cho phép truy cập mà không cần xác thực
-  async register(
-    @Body() registerDto: RegisterDto,
-    @Headers('x-app-source') appSource: string
-  ) {
-    return this.authService.register(registerDto, appSource);
+  async register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
   }
 
+  // Đăng ký shipper
+  @Public()
+  @Post('register-shipper')
+  @ApiOperation({ summary: 'Đăng ký tài xế' })
+  @ApiResponse({ status: 201, description: 'Đăng ký tài xế thành công' })
+  @ApiResponse({ status: 400, description: 'Thông tin không hợp lệ' })
+  async registerShipper(
+    @Body() registerShipperDto: RegisterShipperDto
+  ) {
+      return await this.authService.registerShipper(registerShipperDto);
+  }
+  
   // Login
   @ApiBody({ type: LoginDto })
   @Post('login')
@@ -58,6 +67,7 @@ export class AuthController {
   // Xác thực email
   @Public()
   @Get('verify-email')
+  @ApiExcludeEndpoint() 
   async verifyEmail(@Query('token') token: string) {
     return this.authService.verifyEmail(token);
   }
@@ -72,7 +82,6 @@ export class AuthController {
 
   
   // Reset mật khẩu
- 
   @Patch('reset-password')
   @Public()
   @ApiExcludeEndpoint() 
