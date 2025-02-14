@@ -277,8 +277,9 @@ model CartItem {
   user User @relation(fields: [userId], references: [id])
   food Food @relation(fields: [foodId], references: [id])
 
-  @@map("cart_items")
+  // @@map("cart_items")
 }
+
 
 model OrderItem {
   id       String @id @default(uuid())
