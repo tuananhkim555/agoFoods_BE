@@ -36,7 +36,7 @@ export class CoordsDto {
 
   @IsNumber()
   @IsNotEmpty()
-  longtitudeDelta: number;
+  longitudeDelta: number;
   
 }
 
@@ -160,7 +160,7 @@ export class CoordsRegisterDto extends CoordsDto{
   @ApiProperty()
   @IsNumber()
   @IsNotEmpty()
-  longtitudeDelta: number = 0.0122;
+  longitudeDelta: number = 0.0122;
 }
 
 export class RegisterRestaurant {

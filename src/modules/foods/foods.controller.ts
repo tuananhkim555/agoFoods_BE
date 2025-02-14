@@ -40,7 +40,7 @@ export class FoodsController {
 
 
      // Search món ăn (nên nhớ đặt trước /:id)
-     @Get('search/:search')
+     @Get(':search')
      @UseGuards(JwtAuthGuard)
      @ApiBearerAuth('JWT-auth')
      @ApiQuery({ name: 'text', required: true, description: 'Từ khóa tìm kiếm' })
@@ -76,7 +76,7 @@ export class FoodsController {
   }
 
  // Lấy món ăn theo id nhà hàng
-  @Get('restaurant-foods/:id')
+  @Get('restaurant/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   async getFoodsByRestaurant(@Param('id') id: string, @Query() query: { pageIndex?: number; pageSize?: number; }) {

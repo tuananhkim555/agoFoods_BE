@@ -25,7 +25,7 @@ export class RestaurantsController {
    // Lấy nhà hàng theo id
    @UseGuards(JwtAuthGuard)
    @ApiBearerAuth('JWT-auth')
-   @Get('byId/:id')
+   @Get(':id')
    getRestaurantById(@Param('id') id: string) {
      return this.restaurantsService.getRestaurantById(id);
    }

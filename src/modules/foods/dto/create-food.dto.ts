@@ -2,22 +2,19 @@ import { IsNotEmpty, IsNumber, IsString, IsOptional, IsBoolean, Min, Max, IsPosi
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
-export class Additives {
-  @ApiProperty()
-  @IsString()
-  id: string;
 
+export class AdditivesDto {
   @ApiProperty()
   @IsString()
   title: string;
 
   @ApiProperty()
   @IsNumber()
+  @IsPositive()
   price: number;
 }
 
 export class CreateFoodDto {
-
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
@@ -26,12 +23,17 @@ export class CreateFoodDto {
   @ApiProperty({ type: [String] })
   @IsString({ each: true })
   @IsOptional()
-  foodTags?: Array<string>[];
-
+  foodTags: string[] = [];
+  
   @ApiProperty({ type: [String] })
   @IsString({ each: true })
   @IsOptional()
-  foodType?: Array<string>[];
+  foodTypes: string[] = [];
+
+  @ApiProperty({ type: [AdditivesDto] }) // Sửa chỗ này
+  @IsOptional()
+  @Type(() => AdditivesDto) // Chuyển đổi thành object
+  additives: AdditivesDto[] = [];
 
   @ApiProperty()
   @IsString()
@@ -64,10 +66,10 @@ export class CreateFoodDto {
   @IsOptional()
   rating?: number;
 
-  @ApiProperty()
   @IsNumber()
+  @Min(0)
   @IsOptional()
-  ratingCount: number;
+  ratingCount?: number;
 
   @ApiProperty()
   @IsString()
@@ -77,13 +79,9 @@ export class CreateFoodDto {
   @ApiProperty()
   @IsNumber()
   @IsPositive()
-  price: number; 
+  price: number;
 
-  @ApiProperty({ type: [Additives] })
-  @IsOptional()
-  additives?: Additives[];
-
-  @ApiProperty({ type: [String] }) 
+  @ApiProperty({ type: [String] })
   @IsString({ each: true })
   @IsOptional()
   imageUrl: string[];

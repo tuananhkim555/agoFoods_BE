@@ -12,4 +12,4 @@ import { AddressService } from './address.service';
   providers: [AddressService, PrismaService, JwtService],
   exports: [AddressService]
 })
-export class FoodsModule {}
+export class AddressModule {}

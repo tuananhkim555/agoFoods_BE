@@ -15,14 +15,20 @@ import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { RestaurantsModule } from './modules/restaurants/restaurants.module';
 import { RatingModule } from './modules/rating/rating.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { AddressModule } from './modules/address/address.module';
+import { CartModule } from './modules/cart/cart.module';
 @Module({
   imports: [
+    AdminModule,
     AuthModule,
     UsersModule,
     CategoriesModule,
     RestaurantsModule,
     FoodsModule,
     RatingModule,
+    AddressModule,
+    CartModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),

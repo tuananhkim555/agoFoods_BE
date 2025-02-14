@@ -75,12 +75,15 @@ async function bootstrap() {
       },
       'JWT-auth',
     )
+    .addTag('Admin')
     .addTag('Auth')
     .addTag('Users')
     .addTag('Categories')
     .addTag('Restaurants')
     .addTag('Foods')
     .addTag('Rating')
+    .addTag('Address')
+    .addTag('Cart')
     .addTag('Orders')
     .addTag('Stores')
     .addTag('Shippers')

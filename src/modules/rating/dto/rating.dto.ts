@@ -1,14 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty, IsNumber, IsString, IsOptional, IsUUID } from 'class-validator';
 
-export enum RatingType {
-  Restaurant = 'Restaurant',
-  Driver = 'Driver',
-  Food = 'Food',
+export enum TargetType {
+  FOOD = 'FOOD',
+  RESTAURANT = 'RESTAURANT',
+  SHIPPER = 'SHIPPER',
 }
 
 export class CreateRatingDto {
-
   @ApiProperty()
   @IsNotEmpty()
   @IsNumber()
@@ -19,30 +18,37 @@ export class CreateRatingDto {
   @IsString()
   userId: string;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  restaurantId: string;
+  foodId?: string;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  foodId: string;
+  restaurantId?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  shipperId?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   comment?: string;
 
-  @ApiProperty({ enum: RatingType })
-  @IsEnum(RatingType)
-  ratingType: RatingType;
+  @ApiProperty({ enum: TargetType })
+  @IsEnum(TargetType)
+  targetType: TargetType;
 }
 
-
 export class DeleteRatingDto {
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsUUID()
+  @ApiProperty({
+    description: 'ID của đánh giá cần xóa',
+    example: 'RATING_12345',
+  })
+  @IsNotEmpty({ message: 'ratingId không được để trống.' })
+  @IsUUID('4', { message: 'ratingId phải là UUID hợp lệ.' })
   ratingId: string; // Chỉ cần ratingId để xóa
 }

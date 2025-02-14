@@ -1,28 +1,32 @@
-import { PartialType } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, IsNumber } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNumber, IsBoolean, IsOptional } from 'class-validator';
 
-export class CreateUserAddressDto {
-  @IsNotEmpty()
+export class CreateAddressDto {
+  @ApiProperty()
   @IsString()
-  userId: string;
+  addressLine1: string;
 
-  @IsNotEmpty()
+  @ApiProperty()
   @IsString()
-  address_line_1: string;
+  postalCode: string;
 
-  @IsNotEmpty()
+  @ApiProperty()
+  @IsBoolean()
+  @IsOptional()
+  default?: boolean;
+
+  @ApiProperty()
   @IsString()
-  post_code: string;
+  @IsOptional()
+  deliveryInstructions?: string;
 
+  @ApiProperty()
   @IsNumber()
   latitude: number;
 
+  @ApiProperty()
   @IsNumber()
   longitude: number;
 
-  @IsOptional()
-  @IsString()
-  deliveryInstructions?: string;
-}
 
-export class UpdateUserAddressDto extends PartialType(CreateUserAddressDto) {}
+}
