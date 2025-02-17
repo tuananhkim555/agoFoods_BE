@@ -18,6 +18,7 @@ import { RatingModule } from './modules/rating/rating.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AddressModule } from './modules/address/address.module';
 import { CartModule } from './modules/cart/cart.module';
+import { OrderModule } from './modules/order/order.module';
 @Module({
   imports: [
     AdminModule,
@@ -29,6 +30,7 @@ import { CartModule } from './modules/cart/cart.module';
     RatingModule,
     AddressModule,
     CartModule,
+    OrderModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -58,7 +60,7 @@ import { CartModule } from './modules/cart/cart.module';
     JwtStrategy,
     ConfigService,
     PrismaService,
-    FoodsService,
+    FoodsService,    
   ],
 })
 export class AppModule {}

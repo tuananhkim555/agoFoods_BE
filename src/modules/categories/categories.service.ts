@@ -50,6 +50,7 @@ export class CategoriesService {
     }
   }
 
+
   // Lấy tất cả các category
   async findAll() {
     try {
@@ -65,6 +66,32 @@ export class CategoriesService {
       );
     }
   }
+
+
+   // Lấy random categories
+   async getRandomCategories(limit: number = 7) {
+    try {
+      // Lấy tất cả danh mục
+      
+      const allCategories = await this.prisma.categories.findMany();
+  
+      if (!allCategories.length) {
+        throw new HttpException('Không tìm thấy danh mục nào', HttpStatus.NOT_FOUND);
+      }
+  
+      // Shuffle mảng danh mục
+      const shuffledCategories = [...allCategories].sort(() => Math.random() - 0.5);
+  
+      // Trả về số lượng danh mục ngẫu nhiên
+      const randomCategories = shuffledCategories.slice(0, limit);
+  
+      return randomCategories;
+    } catch (error) {
+      console.error('Error in getRandomCategories:', error);
+      throw new HttpException('Đã xảy ra lỗi khi lấy danh mục ngẫu nhiên', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   
   // Lấy một category theo id
   async findOne(id: string) {
@@ -165,28 +192,5 @@ export class CategoriesService {
     }
   }
 
-  // Lấy random categories
-  async getRandomCategories(limit: number = 5) {
-    try {
-      // Lấy tất cả categories
-      const allCategories = await this.prisma.categories.findMany();
-      
-      if (!allCategories.length) {
-        throw new BadRequestException('Không tìm thấy danh mục nào');
-      }
-
-      // Shuffle array và lấy số lượng theo limit
-      const shuffled = [...allCategories].sort(() => 0.5 - Math.random());
-      return shuffled.slice(0, limit);
-      
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new HttpException(
-        'Đã xảy ra lỗi khi lấy danh mục ngẫu nhiên',
-        HttpStatus.INTERNAL_SERVER_ERROR
-      );
-    }
-  }
+  
 }

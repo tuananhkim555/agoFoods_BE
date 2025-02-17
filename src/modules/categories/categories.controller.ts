@@ -1,12 +1,12 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, Query } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CategoriesService } from './categories.service';
 import { Categories} from './dto/categories.dto';
-import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { Public } from 'src/common/decorators/public.decorator';
 
-@ApiTags('Categories')
 @Controller('api/categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
@@ -25,17 +25,35 @@ export class CategoriesController {
   }
 
   // Lấy tất cả các category
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
+  // @UseGuards(JwtAuthGuard)
+  // @ApiBearerAuth('JWT-auth') 
   @ApiResponse({
     status: 200,
     description: 'Return all categories',
     type: [Categories]
   })
   @Get()
+  @Public()
   findAll() {
     return this.categoriesService.findAll();
   }
+
+ // Lấy random categories
+ @Get('random')
+ @ApiResponse({
+  status: 200,
+  description: 'Return random categories',
+})
+@Public()
+//  @UseGuards(JwtAuthGuard)
+//  @ApiBearerAuth('JWT-auth')
+ @ApiOperation({
+    summary: 'Lấy random danh mục',
+  })
+async getRandomCategory() {
+  return this.categoriesService.getRandomCategories(7);
+}
+
 
   // Lấy một category theo id
   @UseGuards(JwtAuthGuard)
@@ -76,16 +94,6 @@ export class CategoriesController {
     return this.categoriesService.remove(id);
   }
 
-  // Lấy random categories
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiResponse({
-    status: 200,
-    description: 'Return random categories',
-    type: [Categories]
-  })
-  @Get('random')
-  getRandomCategories() {
-    return this.categoriesService.getRandomCategories();
-  }
+ 
 }
+

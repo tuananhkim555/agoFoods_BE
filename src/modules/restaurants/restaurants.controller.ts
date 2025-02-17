@@ -1,9 +1,10 @@
 import { Controller, Get, Post, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { RestaurantsService } from './restaurants.service';
-import { CreateRestaurantDto, RegisterRestaurant } from './dto/restaurants.dto';
+import { RegisterRestaurant } from './dto/restaurants.dto';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Request } from 'express';
+import { Public } from 'src/common/decorators/public.decorator';
 
 
 
@@ -40,8 +41,9 @@ export class RestaurantsController {
 
 
   // Lấy tất cả nhà hàng gần đây
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
+  // @UseGuards(JwtAuthGuard)
+  // @ApiBearerAuth('JWT-auth')
+  @Public()
   @Get('all/:code')
   getAllNearByRestaurants(@Param('code') code : string, @Req() req: any ) {
     return this.restaurantsService.getAllNearByRestaurants(req, code);

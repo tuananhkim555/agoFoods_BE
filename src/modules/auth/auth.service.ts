@@ -365,13 +365,13 @@ export class AuthService {
   // Tạo lại token
   async refreshToken(refreshToken: string) {
     try {
-      const { sub, email } = await this.jwtService.verifyAsync(refreshToken, {
-        secret: this.configService.get('JWT_REFRESH_SECRET'),
+      const payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
-
-      return this.generateTokens(sub, email);
-    } catch {
-      throw new UnauthorizedException('Invalid refresh token');
+      return this.generateTokens(payload.sub, payload.email);
+    } catch (error) {
+      console.error('Error verifying refresh token:', error.message);
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
   }
 

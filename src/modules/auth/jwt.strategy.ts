@@ -14,26 +14,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    // Lấy thông tin user từ database dựa vào id trong token
+    // Lấy thông tin user từ database dựa vào id hoặc email trong token
     const user = await this.prisma.user.findUnique({
-      where: { id: payload.id }
+      where: {
+        id: payload.id || undefined,
+        email: payload.email || undefined,
+      },
     });
-
-    if (!user || !user.status) {
-      throw new UnauthorizedException('Tài khoản không tồn tại hoặc đã bị khóa');
+  
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
-
-    // Log để debug
-    console.log('JWT Payload:', payload);
-    console.log('Found User:', user);
-
-    // Trả về user object đầy đủ
-    return {
-      id: user.id,
-      email: user.email,
-      fullName: user.fullName,
-      role: user.role,
-      status: user.status
-    };
+  
+    return user;
   }
+   
 }

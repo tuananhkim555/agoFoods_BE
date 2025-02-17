@@ -187,3 +187,9 @@ export class LoginDto {
   emailOrPhone: any;
 }
 
+export class RefreshTokenDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsString()
+  refreshToken: string;
+}

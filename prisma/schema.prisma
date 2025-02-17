@@ -47,6 +47,18 @@ model User {
   userAddresses Address[]
 }
 
+
+model Categories {
+  id        String   @id @default(cuid())
+  title     String
+  value     String   @unique
+  imageUrl  String
+  version   Int      @default(0) @map("_v")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  foods     Food[]
+}
+
 model Shipper {
   id                   String          @id @default(uuid())
   userId               String          @unique
@@ -75,9 +87,7 @@ model Shipper {
   shipperReview        ShipperReview[]
 
   // Thêm quan hệ đối ứng với Rating
-  ratings              Rating[] @relation("ShipperRating")
-
-
+  ratings Rating[] @relation("ShipperRating")
 }
 
 model Restaurant {
@@ -112,9 +122,7 @@ model Restaurant {
   orders              Order[]
   ratings             Rating[] @relation("RestaurantRating")
 
-
-
-  user                User     @relation("UserRestaurants", fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation("UserRestaurants", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -135,6 +143,7 @@ model Food {
   ratingCount  Int         @default(0)
   imageUrl     Json
   isAvailable  Boolean     @default(true)
+  quantity     Int         @default(0)
   status       Boolean     @default(true)
   cartItems    CartItem[]
   comments     Comment[]
@@ -150,76 +159,13 @@ model Food {
   @@index([code])
 }
 
-model Rating {
-  id         String     @id @default(uuid())
-  userId     String
-  rating     Float
-  comment    String?
-  foodId     String?    // Trường riêng cho món ăn
-  restaurantId String?  // Trường riêng cho nhà hàng
-  shipperId  String?    // Trường riêng cho shipper
-  targetType TargetType
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+model FoodTags {
+  id    String @id @default(uuid()) // ID duy nhất cho mỗi tag
+  name  String @unique() // Tên tag (ví dụ: "Cay", "Nóng", "Healthy")
+  foods Food[] @relation("FoodTags") // Liên kết với nhiều món ăn có tag này
 
-  user       User       @relation(fields: [userId], references: [id])
-  food       Food?      @relation("FoodRating", fields: [foodId], references: [id], map: "foodRatingFkey")
-  restaurant Restaurant? @relation("RestaurantRating", fields: [restaurantId], references: [id], map: "restaurantRatingFkey")
-  shipper    Shipper?    @relation("ShipperRating", fields: [shipperId], references: [id], map: "shipperRatingFkey")
-
-  @@index([userId])
-}
-
-model Categories {
-  id        String   @id @default(cuid())
-  title     String
-  value     String   @unique
-  imageUrl  String
-  version   Int      @default(0) @map("_v")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  foods     Food[]
-}
-
-model Address {
-  id                   String  @id @default(uuid())
-  userId               String
-  addressLine1         String
-  postalCode           String
-  default              Boolean @default(false)
-  deliveryInstructions String?
-  latitude             Float
-  longitude            Float
-
-  version Int  @default(0) @map("_v")
-  user    User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId], map: "UserAddress_userId_fkey")
-}
-
-model Order {
-  id              String      @id @default(uuid())
-  customerId      String
-  restaurantId    String
-  status          OrderStatus @default(PENDING)
-  total           Float
-  shipperId       String? // Chuyển từ driverId thành shipperId
-  deliveryAddress String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  delivery        Delivery?
-  customer        User        @relation(fields: [customerId], references: [id])
-  restaurant      Restaurant  @relation(fields: [restaurantId], references: [id])
-
-  // Quan hệ với shipper thay vì driver
-  shipper Shipper? @relation("ShipperOrder", fields: [shipperId], references: [id])
-
-  items   OrderItem[]
-  payment Payment?
-
-  @@index([customerId])
-  @@index([restaurantId])
-  @@index([shipperId], map: "Order_shipperId_fkey") // Điều chỉnh chỉ số cho shipperId
+  createdAt DateTime @default(now()) // Thời gian tạo
+  updatedAt DateTime @updatedAt // Thời gian cập nhật tự động
 }
 
 model FoodTypes {
@@ -231,25 +177,111 @@ model FoodTypes {
   updatedAt DateTime @updatedAt // Thời gian cập nhật tự động
 }
 
-model FoodTags {
-  id    String @id @default(uuid()) // ID duy nhất cho mỗi tag
-  name  String @unique() // Tên tag (ví dụ: "Cay", "Nóng", "Healthy")
-  foods Food[] @relation("FoodTags") // Liên kết với nhiều món ăn có tag này
-
-  createdAt DateTime @default(now()) // Thời gian tạo
-  updatedAt DateTime @updatedAt // Thời gian cập nhật tự động
-}
-
 model Additives {
   id    String @id @default(uuid()) // ID duy nhất cho mỗi thành phần thêm
   title String // Tên thành phần (ví dụ: "Thêm phô mai", "Thêm sốt")
   price Float // Giá thêm cho thành phần
 
-  cartItems CartItem[] @relation("CartItemAdditives") // Liên kết với giỏ hàng (nếu có)
-  foods     Food[]     @relation("FoodAdditive") // Liên kết với nhiều món ăn có thể chọn thành phần này
+  cartItems  CartItem[]  @relation("CartItemAdditives") // Liên kết với giỏ hàng (nếu có)
+  foods      Food[]      @relation("FoodAdditive") // Liên kết với nhiều món ăn có thể chọn thành phần này
+  // Quan hệ với OrderItem
+  orderItems OrderItem[] @relation("OrderItemAdditives")
 
   createdAt DateTime @default(now()) // Thời gian tạo
   updatedAt DateTime @updatedAt // Thời gian cập nhật tự động
+}
+
+model Rating {
+  id           String     @id @default(uuid())
+  userId       String
+  rating       Float
+  comment      String?
+  foodId       String? // Trường riêng cho món ăn
+  restaurantId String? // Trường riêng cho nhà hàng
+  shipperId    String? // Trường riêng cho shipper
+  targetType   TargetType
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id])
+  food       Food?       @relation("FoodRating", fields: [foodId], references: [id], map: "foodRatingFkey")
+  restaurant Restaurant? @relation("RestaurantRating", fields: [restaurantId], references: [id], map: "restaurantRatingFkey")
+  shipper    Shipper?    @relation("ShipperRating", fields: [shipperId], references: [id], map: "shipperRatingFkey")
+
+  @@index([userId])
+}
+
+
+model Address {
+  id                   String   @id @default(uuid())
+  userId               String
+  addressLine1         String
+  postalCode           String
+  default              Boolean  @default(false)
+  deliveryInstructions String?
+  latitude             Float
+  longitude            Float
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  version Int  @default(0) @map("_v")
+  user    User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "UserAddress_userId_fkey")
+}
+
+model Order {
+  id                String        @id @default(uuid())
+  customerId        String
+  restaurantId      String
+  status            OrderStatus   @default(PENDING)
+  total             Float // Tổng tiền món ăn (không bao gồm phí vận chuyển, giảm giá, v.v.)
+  grandTotal        Float // Tổng tiền cuối cùng (bao gồm phí vận chuyển, giảm giá, v.v.)
+  shipperId         String? // ID của shipper (người giao hàng)
+  deliveryAddress   String?
+  restaurantAddress String? // Địa chỉ nhà hàng
+  paymentMethod     PaymentMethod
+  paymentStatus     PaymentStatus @default(PENDING)
+  instructions      String? // Ghi chú cho đơn hàng
+  promoCode         String? // Mã khuyến mãi
+  discountAmount    Float? // Số tiền giảm giá
+  notes             String? // Ghi chú từ khách hàng
+  orderItems        OrderItem[] // Danh sách các món ăn trong đơn hàng
+  rating            Float? // Đánh giá đơn hàng
+  feedback          String? // Phản hồi từ khách hàng
+  comment           String? // Bình luận từ khách hàng
+  restaurantCoords  Json? // Tọa độ nhà hàng
+  recipientCoords   Json? // Tọa độ người nhận
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Quan hệ với các model khác
+  customer   User       @relation(fields: [customerId], references: [id])
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  shipper    Shipper?   @relation("ShipperOrder", fields: [shipperId], references: [id])
+  payment         Payment?    @relation("OrderPayment")
+  @@index([customerId])
+  @@index([restaurantId])
+  @@index([shipperId], map: "Order_shipperId_fkey") // Điều chỉnh chỉ số cho shipperId
+}
+
+model OrderItem {
+  id           String      @id @default(uuid())
+  orderId      String
+  foodId       String
+  quantity     Int
+  price        Float // Giá của món ăn tại thời điểm đặt hàng
+  additives    Additives[] @relation("OrderItemAdditives") // Các phụ gia được chọn
+  instructions String? // Ghi chú riêng cho món ăn này
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Quan hệ với các model khác
+  food  Food  @relation("FoodOrderItem", fields: [foodId], references: [id])
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([foodId], map: "OrderItem_foodId_fkey")
+  @@index([orderId], map: "OrderItem_orderId_fkey")
 }
 
 model ShipperReview {
@@ -260,7 +292,6 @@ model ShipperReview {
   createdAt DateTime @default(now())
   shipper   Shipper  @relation(fields: [shipperId], references: [id])
 
-
   @@index([shipperId], map: "ShipperReview_shipperId_fkey")
 }
 
@@ -268,7 +299,7 @@ model CartItem {
   id         String      @id @default(uuid())
   userId     String
   foodId     String
-  quantity   Int
+  quantity   Int         @default(0)
   totalPrice Float
   additives  Additives[] @relation("CartItemAdditives")
   createdAt  DateTime    @default(now())
@@ -278,20 +309,6 @@ model CartItem {
   food Food @relation(fields: [foodId], references: [id])
 
   // @@map("cart_items")
-}
-
-
-model OrderItem {
-  id       String @id @default(uuid())
-  orderId  String
-  foodId   String
-  quantity Int
-  price    Float
-  food     Food   @relation("FoodOrderItem", fields: [foodId], references: [id])
-  order    Order  @relation(fields: [orderId], references: [id])
-
-  @@index([foodId], map: "OrderItem_foodId_fkey")
-  @@index([orderId], map: "OrderItem_orderId_fkey")
 }
 
 model Notification {
@@ -332,15 +349,17 @@ model Message {
 }
 
 model Payment {
-  id            String   @id @default(uuid())
-  orderId       String   @unique
-  amount        Float
-  provider      String
-  status        Boolean  @default(false)
-  transactionId String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  order         Order    @relation(fields: [orderId], references: [id])
+  id            String        @id @default(uuid())
+  orderId       String        @unique
+  amount        Float // Số tiền thanh toán
+  method        PaymentMethod // Phương thức thanh toán
+  status        PaymentStatus @default(PENDING) // Trạng thái thanh toán
+  transactionId String? // ID giao dịch (nếu có)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Quan hệ với đơn hàng
+  order         Order    @relation("OrderPayment", fields: [orderId], references: [id]) // Add `fields` and `references`
 }
 
 model Comment {
@@ -365,7 +384,7 @@ model Delivery {
   location  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  order     Order    @relation(fields: [orderId], references: [id])
+  // order     Order    @relation(fields: [orderId], references: [id])
   shipper   User     @relation(fields: [shipperId], references: [id])
 
   @@index([shipperId], map: "Delivery_shipperId_fkey")
@@ -413,13 +432,28 @@ enum TargetType {
 }
 
 enum OrderStatus {
-  PENDING
-  CONFIRMED
-  PREPARING
-  PICKED_UP
-  DELIVERING
-  DELIVERED
-  CANCELLED
+  PENDING // Đang chờ xác nhận
+  CONFIRMED // Đã xác nhận
+  PREPARING // Đang chuẩn bị
+  PICKED_UP // Đã lấy hàng
+  DELIVERING // Đang giao hàng
+  DELIVERED // Đã giao hàng
+  CANCELLED // Đã hủy
+}
+
+enum PaymentMethod {
+  CASH // Tiền mặt
+  CREDIT_CARD // Thẻ tín dụng
+  PAYPAL // PayPal
+  MOMO // Ví điện tử Momo
+  ZALOPAY // Ví điện tử ZaloPay
+}
+
+enum PaymentStatus {
+  PENDING // Chưa thanh toán
+  PAID // Đã thanh toán
+  REFUNDED // Đã hoàn tiền
+  FAILED // Thanh toán thất bại
 }
 
 enum TransactionType {

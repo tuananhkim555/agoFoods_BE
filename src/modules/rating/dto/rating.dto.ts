@@ -46,7 +46,6 @@ export class CreateRatingDto {
 export class DeleteRatingDto {
   @ApiProperty({
     description: 'ID của đánh giá cần xóa',
-    example: 'RATING_12345',
   })
   @IsNotEmpty({ message: 'ratingId không được để trống.' })
   @IsUUID('4', { message: 'ratingId phải là UUID hợp lệ.' })

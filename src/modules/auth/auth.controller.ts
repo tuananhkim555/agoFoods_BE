@@ -1,11 +1,12 @@
-import { Controller, Post, Body, Headers, Patch, Param, Query, Get, UseInterceptors, BadRequestException } from '@nestjs/common';
-import {  LoginDto, RegisterDto, RegisterShipperDto } from './dto/auth.dto';
+import { Controller, Post, Body, Headers, Patch, Param, Query, Get } from '@nestjs/common';
+import {  LoginDto, RefreshTokenDto, RegisterDto, RegisterShipperDto } from './dto/auth.dto';
 import { AuthService } from './auth.service';
-import { ApiBody, ApiExcludeEndpoint, ApiResponse, ApiOperation } from '@nestjs/swagger';
+import { ApiBody, ApiExcludeEndpoint, ApiResponse, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 import { UseGuards } from '@nestjs/common';
 import { ApiKeyGuard } from 'src/common/guards/api-key.guard';
 import { Public } from 'src/common/decorators/public.decorator';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 
 // ApiKeyGuard: Kiểm tra API key cho các endpoint cần bảo mật đặc biệt
@@ -89,7 +90,13 @@ export class AuthController {
     return this.authService.resetPassword(token, newPassword);
   }
   
-
+  // Tạo lai token
+  @Post('refresh-token')
+  @Public()
+  async refreshToken(@Body() body: RefreshTokenDto) {
+    const { refreshToken } = body;
+    return this.authService.refreshToken(refreshToken);
+  }
 
   // Đăng xuất
 @Public()

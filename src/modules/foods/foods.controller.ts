@@ -7,6 +7,7 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 import { ApiBearerAuth, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { Public } from '../../common/decorators/public.decorator';
 
 @Controller('api/foods')
 export class FoodsController {
@@ -27,8 +28,7 @@ export class FoodsController {
 
 
   //Lấy tất cả danh sách món ăn
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
+  @Public()
   @ApiResponse({
     type: [CreateFoodDto]
   })
