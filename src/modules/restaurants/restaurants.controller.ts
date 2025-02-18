@@ -32,8 +32,9 @@ export class RestaurantsController {
    }
 
   // Lấy ngẫu nhiên nhà hàng
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
+  // @UseGuards(JwtAuthGuard)
+  // @ApiBearerAuth('JWT-auth')
+  @Public()
   @Get('random/:code')
   getRandomRestaurants(@Param('code') code: string, @Req() req: any) {
     return this.restaurantsService.getRandomRestaurants(req, code);

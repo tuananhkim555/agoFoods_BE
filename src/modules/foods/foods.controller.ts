@@ -32,7 +32,7 @@ export class FoodsController {
   @ApiResponse({
     type: [CreateFoodDto]
   })
-  @Get()
+  @Get('all')
   @ResponseMessage('Lấy danh sách món ăn thành công')
   async getFoods(@Query() query: any) {
     return this.foodsService.getFoodAll(query);
@@ -67,8 +67,9 @@ export class FoodsController {
 
   // Lấy Random danh sách món ăn
   @Get('random/:code')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
+  // @UseGuards(JwtAuthGuard)
+  // @ApiBearerAuth('JWT-auth')
+  @Public()
   @ApiParam({ name: 'code', required: true })
   @ResponseMessage('Lấy danh sách món ăn ngẫu nhiên thành công')
   async getRandomFoods(@Param('code') code: string) {

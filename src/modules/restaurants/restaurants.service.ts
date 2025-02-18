@@ -251,32 +251,40 @@ export class RestaurantsService {
     try {
       let { pageIndex, pageSize } = req.query as any;
       pageIndex = +pageIndex > 0 ? +pageIndex : 1;
-      pageSize = +pageSize > 0 ? +pageSize : 3;
-
+      pageSize = +pageSize > 0 ? +pageSize : 10; // Đảm bảo lấy 10 nhà hàng gần nhất
+  
       const skip = (pageIndex - 1) * pageSize;
+  
+      // Lấy tổng số nhà hàng có code và là available
       const totalItems = await this.prisma.restaurant.count({
         where: { code, isAvailable: true },
       });
-
+  
+      if (totalItems === 0) {
+        throw new NotFoundException('Không tìm thấy nhà hàng');
+      }
+  
       const totalPages = Math.ceil(totalItems / pageSize);
-
+  
+      // Lấy danh sách nhà hàng gần nhất
       const restaurants = await this.prisma.restaurant.findMany({
         where: {
           code,
           isAvailable: true,
         },
         include: {
-          foods: true,
+          foods: {
+            include: {
+              foodTags: true,
+              foodTypes: true,
+              additives: true,
+            },
+          },
         },
         skip,
         take: pageSize,
       });
-
-      // Log the foodTags, foodType, and additives before parsing
-      restaurants.forEach((restaurant) => {
-        restaurant.foods.forEach((food) => {});
-      });
-
+  
       return {
         metaData: {
           pageIndex,
@@ -285,23 +293,16 @@ export class RestaurantsService {
           totalPages,
           allNearByRestaurants: restaurants.map((restaurant) => ({
             ...restaurant,
+            coords: formatCoords(restaurant.coords),
             foods: restaurant.foods.map((food) => ({
               ...food,
-              foodTags: JsonParser.safeJsonParse(
-                ((food as any).foodTags as string) || '[]',
-              ),
-              foodType: JsonParser.safeJsonParse(
-                ((food as any).foodTypes as string) || '[]',
-              ),
-              additives: JsonParser.safeJsonParse(
-                ((food as any).additives as string) || '[]',
-              ).map((additive: any) => ({
-                id: additive.id,
-                title: additive.title,
-                price: Number(additive.price),
-              })),
+              foodTags: food.foodTags || [],
+              foodTypes: food.foodTypes || [],
+              additives: food.additives || [],
+              imageUrl: Array.isArray(food.imageUrl)
+                ? food.imageUrl
+                : JsonParser.safeJsonParse(food.imageUrl || '[]'),
             })),
-            coords: formatCoords(restaurant.coords),
           })),
         },
       };
