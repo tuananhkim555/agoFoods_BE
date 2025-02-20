@@ -7,7 +7,7 @@ import {
 import { PrismaService } from 'src/common/prisma/prisma.service';
 import { CreateFoodDto } from './dto/create-food.dto';
 import { UpdateFoodDto } from './dto/update-food.dto';
-import { Prisma } from '@prisma/client';
+import { CategoryType, Prisma } from '@prisma/client';
 import { JsonParser } from 'src/common/helpers/json-parser';
 import _ from 'lodash';
 import { generateFoodId, generateId } from 'src/common/utils/format-id';
@@ -22,83 +22,79 @@ export class FoodsService {
   // Tạo món ăn
   async createFood(createFoodDto: CreateFoodDto) {
     try {
-      // Tạo ID cho món ăn
+      // 1. Tạo ID cho món ăn
       const foodId = await generateFoodId(this.prisma);
-
-      // 2. Validate restaurant exists
+  
+      // 2. Kiểm tra nhà hàng có tồn tại không (Chỉ where theo ID)
       const restaurant = await this.prisma.restaurant.findUnique({
         where: { id: createFoodDto.restaurantId },
+        select: { id: true },
       });
-
+  
       if (!restaurant) {
-        throw new BadRequestException('Không tìm thấy nhà hàng');
+        throw new BadRequestException('Nhà hàng không tồn tại');
       }
-
-      // 3. Validate category exists
+  
+      // 3. Kiểm tra danh mục có tồn tại không (Chỉ where theo ID)
       const category = await this.prisma.categories.findUnique({
         where: { id: createFoodDto.categoryId },
+        select: { id: true, type: true, title: true },
       });
-
+  
       if (!category) {
-        throw new BadRequestException('Không tìm thấy danh mục');
+        throw new BadRequestException('Danh mục không tồn tại');
       }
-
-      // 4. Validate restaurant code
-      const restaurantWithCode = await this.prisma.restaurant.findFirst({
-        where: { code: createFoodDto.code },
-      });
-
-      // Tạo ID cho các tag
+  
+      // 4. Kiểm tra type của category (Chỉ chấp nhận FOOD)
+      if (category.type !== CategoryType.FOOD) {
+        throw new BadRequestException(`Bạn đã chọn danh mục đồ uống '${category.title}' lỗi không hợp lệ,vui lòng chọn danh mục đồ ăn - FOOD`);
+      }
+  
+      // 5. Xử lý foodTags
       const foodTags = await Promise.all(
         createFoodDto.foodTags.map(async (tagName) => {
-          // Tạo ID cho Tag với tiền tố "Tag_"
           const tagId = await generateId(this.prisma, 'Tag', 'foodTags');
           return await this.prisma.foodTags.upsert({
             where: { name: tagName },
             update: {},
-            create: { name: tagName, id: tagId }, // Gán ID vừa tạo
+            create: { name: tagName, id: tagId },
             select: { id: true, name: true },
           });
         }),
       );
-
-      // Tạo ID cho các loại món ăn
+  
+      // 6. Xử lý foodTypes
       const foodTypes = await Promise.all(
         createFoodDto.foodTypes.map(async (typeName) => {
-          // Tạo ID cho Type với tiền tố "Type_"
           const typeId = await generateId(this.prisma, 'Type', 'foodTypes');
           return await this.prisma.foodTypes.upsert({
             where: { name: typeName },
             update: {},
-            create: { name: typeName, id: typeId }, // Gán ID vừa tạo
+            create: { name: typeName, id: typeId },
             select: { id: true, name: true },
           });
         }),
       );
-
-      // Tạo ID cho các additives và tránh tạo bản ghi trùng
+  
+      // 7. Xử lý additives
       const additives = await Promise.all(
         createFoodDto.additives.map(async (additive) => {
-          // Kiểm tra xem additive đã tồn tại chưa, sử dụng title để tìm kiếm trùng
           const existingAdditive = await this.prisma.additives.findFirst({
-            where: { title: additive.title }, // Lọc theo title
+            where: { title: additive.title },
           });
-
+  
           if (existingAdditive) {
-            // Nếu tồn tại, trả về ID đã tồn tại
             return {
               id: existingAdditive.id,
               title: existingAdditive.title,
               price: existingAdditive.price,
             };
           }
-
-          // Nếu không có, tạo mới additive với title và price, đồng thời đảm bảo định dạng ID
+  
           const additiveId = await generateId(this.prisma, 'Add', 'additives');
-
           return await this.prisma.additives.create({
             data: {
-              id: additiveId, // ID được tạo theo format Add_00001
+              id: additiveId,
               title: additive.title,
               price: additive.price,
             },
@@ -106,8 +102,8 @@ export class FoodsService {
           });
         }),
       );
-
-      // Kiểm tra xem có thiếu bất kỳ tags, types, additives nào không
+  
+      // 8. Kiểm tra số lượng tags, types, additives có đúng không
       if (foodTypes.length !== createFoodDto.foodTypes.length) {
         throw new BadRequestException('Một hoặc nhiều foodTypes không tồn tại');
       }
@@ -117,26 +113,19 @@ export class FoodsService {
       if (additives.length !== createFoodDto.additives.length) {
         throw new BadRequestException('Một hoặc nhiều additives không tồn tại');
       }
-
-      // Sau khi đã xử lý additives, tiếp tục tạo món ăn với các dữ liệu đã kết nối
+  
+      // 9. Tạo món ăn
       const food = await this.prisma.food.create({
         data: {
-          id: foodId, // ID cho món ăn
+          id: foodId,
           ...createFoodDto,
+          categoryId: category.id,
           foodTypes: { connect: foodTypes.map((type) => ({ id: type.id })) },
           foodTags: { connect: foodTags.map((tag) => ({ id: tag.id })) },
-          additives: {
-            connect: additives.map((additive) => ({
-              id: additive.id, // Kết nối ID của additives
-            })),
-          },
+          additives: { connect: additives.map((additive) => ({ id: additive.id })) },
         },
-        // include: {
-        //   category: true,
-        //   restaurant: true,
-        // },
       });
-
+  
       return {
         status: 'success',
         message: 'Tạo món ăn thành công',
@@ -148,13 +137,11 @@ export class FoodsService {
         },
       };
     } catch (error) {
-      console.error('Error creating food:', error);
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new BadRequestException('Không thể tạo món ăn');
+      console.error('Lỗi khi tạo món ăn:', error);
+      throw new BadRequestException(error.message || 'Không thể tạo món ăn');
     }
   }
+  
 
   // Lấy tất cả danh sách món ăn
 async getFoodAll(query: any) {

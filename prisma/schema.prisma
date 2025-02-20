@@ -52,11 +52,20 @@ model Categories {
   id        String   @id @default(cuid())
   title     String
   value     String   @unique
+  type      CategoryType
   imageUrl  String
   version   Int      @default(0) @map("_v")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   foods     Food[]
+  drinks    Drink[]
+
+  @@index([type])
+}
+
+enum CategoryType {
+  FOOD
+  DRINK
 }
 
 model Shipper {
@@ -119,6 +128,7 @@ model Restaurant {
   updatedAt           DateTime @updatedAt
   version             Int      @default(0) @map("_v")
   foods               Food[]
+  drinks              Drink[] 
   orders              Order[]
   ratings             Rating[] @relation("RestaurantRating")
 
@@ -186,9 +196,56 @@ model Additives {
   foods      Food[]      @relation("FoodAdditive") // Liên kết với nhiều món ăn có thể chọn thành phần này
   // Quan hệ với OrderItem
   orderItems OrderItem[] @relation("OrderItemAdditives")
+  drinks      Drink[]  @relation("DrinkAdditive")
 
   createdAt DateTime @default(now()) // Thời gian tạo
   updatedAt DateTime @updatedAt // Thời gian cập nhật tự động
+}
+
+model Drink {
+  id           String      @id @default(uuid())
+  restaurantId String
+  title        String
+  time         String
+  price        Float
+  description  String?
+  categoryId   String
+  drinkTypes   DrinkTypes[] @relation("DrinkTypes")
+  drinkTags    DrinkTags[]  @relation("DrinkTags")
+  additives    Additives[]  @relation("DrinkAdditive")
+  code         String
+  rating       Float        @default(0)
+  ratingCount  Int          @default(0)
+  imageUrl     Json
+  isAvailable  Boolean      @default(true)
+  status       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  category     Categories   @relation(fields: [categoryId], references: [id])
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orderItems   OrderItem[]  @relation("DrinkOrderItem")
+  ratings      Rating[]     @relation("DrinkRating")
+
+  @@index([restaurantId])
+  @@index([categoryId])
+  @@index([code])
+}
+
+model DrinkTags {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  drinks    Drink[]  @relation("DrinkTags")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DrinkTypes {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  drinks    Drink[]  @relation("DrinkTypes")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Rating {
@@ -199,6 +256,7 @@ model Rating {
   foodId       String? // Trường riêng cho món ăn
   restaurantId String? // Trường riêng cho nhà hàng
   shipperId    String? // Trường riêng cho shipper
+  drinkId      String?
   targetType   TargetType
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -207,8 +265,10 @@ model Rating {
   food       Food?       @relation("FoodRating", fields: [foodId], references: [id], map: "foodRatingFkey")
   restaurant Restaurant? @relation("RestaurantRating", fields: [restaurantId], references: [id], map: "restaurantRatingFkey")
   shipper    Shipper?    @relation("ShipperRating", fields: [shipperId], references: [id], map: "shipperRatingFkey")
+  drink      Drink?      @relation("DrinkRating", fields: [drinkId], references: [id], map: "drinkRatingFkey") // Add this line
 
   @@index([userId])
+  @@index([drinkId], map: "Rating_drinkId_fkey")
 }
 
 
@@ -277,11 +337,14 @@ model OrderItem {
   updatedAt    DateTime    @updatedAt
 
   // Quan hệ với các model khác
+  drinkId String?
+  drink Drink? @relation("DrinkOrderItem", fields: [drinkId], references: [id])
   food  Food  @relation("FoodOrderItem", fields: [foodId], references: [id])
   order Order @relation(fields: [orderId], references: [id])
 
   @@index([foodId], map: "OrderItem_foodId_fkey")
   @@index([orderId], map: "OrderItem_orderId_fkey")
+  @@index([drinkId], map: "OrderItem_drinkId_fkey")
 }
 
 model ShipperReview {

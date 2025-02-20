@@ -1,17 +1,6 @@
-import {
-  IsNotEmpty,
-  IsNumber,
-  IsString,
-  IsOptional,
-  IsBoolean,
-  Min,
-  Max,
-  IsPositive,
-  IsEnum,
-} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNumber, IsPositive, IsNotEmpty, IsBoolean, IsOptional, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
-import { CategoryType } from '@prisma/client';
 
 export class AdditivesDto {
   @ApiProperty()
@@ -24,7 +13,7 @@ export class AdditivesDto {
   price: number;
 }
 
-export class CreateFoodDto {
+export class CreateDrinkDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
@@ -33,16 +22,16 @@ export class CreateFoodDto {
   @ApiProperty({ type: [String] })
   @IsString({ each: true })
   @IsOptional()
-  foodTags: string[] = [];
+  drinkTags: string[] = [];
 
   @ApiProperty({ type: [String] })
   @IsString({ each: true })
   @IsOptional()
-  foodTypes: string[] = [];
+  drinkTypes: string[] = [];
 
-  @ApiProperty({ type: [AdditivesDto] }) // Sửa chỗ này
+  @ApiProperty({ type: [AdditivesDto] })
   @IsOptional()
-  @Type(() => AdditivesDto) // Chuyển đổi thành object
+  @Type(() => AdditivesDto)
   additives: AdditivesDto[] = [];
 
   @ApiProperty()
@@ -76,7 +65,6 @@ export class CreateFoodDto {
   @IsOptional()
   rating?: number;
 
-  @Type(() => Number) // Đảm bảo không bị lỗi khi nhận giá trị dạng string từ request body
   @IsNumber()
   @Min(0)
   @IsOptional()
@@ -96,36 +84,4 @@ export class CreateFoodDto {
   @IsString({ each: true })
   @IsOptional()
   imageUrl: string[];
-
-}
-
-export class PaginationQueryDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  pageIndex?: number = 1;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  pageSize?: number = 10;
-}
-
-export class SearchFoodsDto {
-  @IsString()
-  text: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Type(() => Number)
-  pageIndex?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Type(() => Number)
-  pageSize?: number;
 }

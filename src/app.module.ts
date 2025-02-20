@@ -19,6 +19,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { AddressModule } from './modules/address/address.module';
 import { CartModule } from './modules/cart/cart.module';
 import { OrderModule } from './modules/order/order.module';
+import { DrinksModule } from './modules/drinks/drinks.module';
 @Module({
   imports: [
     AdminModule,
@@ -27,6 +28,7 @@ import { OrderModule } from './modules/order/order.module';
     CategoriesModule,
     RestaurantsModule,
     FoodsModule,
+    DrinksModule,
     RatingModule,
     AddressModule,
     CartModule,

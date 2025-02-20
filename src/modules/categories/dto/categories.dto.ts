@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsNumber, Min } from 'class-validator';
+import { CategoryType } from '@prisma/client';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, IsEnum } from 'class-validator';
 
 export class Categories {
     @ApiProperty({
@@ -23,6 +24,11 @@ export class Categories {
     @IsNotEmpty()
     imageUrl: string;
 
+
+    @IsEnum(CategoryType)
+    type: CategoryType;
+
+
     @ApiProperty({ required: false })
     @IsOptional()
     createdAt?: Date;
@@ -34,5 +40,6 @@ export class Categories {
     @ApiProperty({ required: false })
     @IsOptional()
     version?: number;
+
 }
   

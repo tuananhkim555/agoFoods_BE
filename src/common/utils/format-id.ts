@@ -34,6 +34,26 @@ export const generateRestaurantId = async (prisma: any): Promise<string> => {
       }
     }
   };
+
+
+  export const generateDrinkId = async (prisma: any): Promise<string> => {
+    while (true) {
+      // Tạo số ngẫu nhiên 6 chữ số
+      const randomNum = Math.floor(100000 + Math.random() * 900000);
+      const drinkId = `DRINK_${randomNum}`;
+  
+      // Kiểm tra xem ID đã tồn tại chưa
+      const existingDrink = await prisma.drink.findUnique({
+        where: { id: drinkId },
+      });
+  
+      // Nếu ID chưa tồn tại, trả về nó
+      if (!existingDrink) {
+        return drinkId;
+      }
+    }
+  };
+  
   
   // fomart id food tag, type, additives
   export const generateId = async (prisma: any, prefix: string, table: string): Promise<string> => {

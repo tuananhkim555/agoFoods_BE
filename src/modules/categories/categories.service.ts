@@ -1,27 +1,44 @@
-import { Injectable, HttpException, HttpStatus, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  HttpException,
+  HttpStatus,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/common/prisma/prisma.service';
 import { Categories } from './dto/categories.dto';
-import { Prisma } from '@prisma/client';
+import { CategoryType, Prisma } from '@prisma/client';
 import { nanoid } from 'nanoid';
 
 @Injectable()
 export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
-// Tạo mới một category
+  // Tạo mới một category
   async create(categories: Categories) {
     try {
-      const { title, value, imageUrl } = categories;
-      
+      const { title, value, imageUrl, type } = categories;
+
+      // Kiểm tra xem type có hợp lệ không
+      if (!['FOOD', 'DRINK'].includes(type)) {
+        throw new Error('Invalid category type. Must be either FOOD or DRINK.');
+      }
+
+      // Kiểm tra xem type có hợp lệ không
+      if (!Object.values(CategoryType).includes(type as CategoryType)) {
+        throw new BadRequestException(
+          'Invalid category type. Must be either FOOD or DRINK.',
+        );
+      }
+
       // Kiểm tra value đã tồn tại chưa
       const existingCategory = await this.prisma.categories.findUnique({
-        where: { value }
+        where: { value },
       });
 
       if (existingCategory) {
         throw new HttpException(
           'Value này đã tồn tại. Vui lòng sử dụng giá trị khác.',
-          HttpStatus.CONFLICT
+          HttpStatus.CONFLICT,
         );
       }
 
@@ -34,15 +51,17 @@ export class CategoriesService {
           title,
           value,
           imageUrl,
+          type: type as CategoryType,
           version: 0,
-        }
+        },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2002') { // Unique constraint violation
+        if (error.code === 'P2002') {
+          // Unique constraint violation
           throw new HttpException(
             'Danh mục với giá trị này đã tồn tại',
-            HttpStatus.CONFLICT
+            HttpStatus.CONFLICT,
           );
         }
       }
@@ -50,64 +69,74 @@ export class CategoriesService {
     }
   }
 
-
   // Lấy tất cả các category
   async findAll() {
     try {
       const categories = await this.prisma.categories.findMany();
       if (!categories.length) {
-        throw new HttpException('Không tìm thấy danh mục nào', HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          'Không tìm thấy danh mục nào',
+          HttpStatus.NOT_FOUND,
+        );
       }
       return categories;
     } catch (error) {
       throw new HttpException(
         'Đã xảy ra lỗi khi lấy danh sách danh mục',
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
-
-   // Lấy random categories
-   async getRandomCategories(limit: number = 7) {
+  // Lấy random categories
+  async getRandomCategories(limit: number = 7) {
     try {
       // Lấy tất cả danh mục
-      
+
       const allCategories = await this.prisma.categories.findMany();
-  
+
       if (!allCategories.length) {
-        throw new HttpException('Không tìm thấy danh mục nào', HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          'Không tìm thấy danh mục nào',
+          HttpStatus.NOT_FOUND,
+        );
       }
-  
+
       // Shuffle mảng danh mục
-      const shuffledCategories = [...allCategories].sort(() => Math.random() - 0.5);
-  
+      const shuffledCategories = [...allCategories].sort(
+        () => Math.random() - 0.5,
+      );
+
       // Trả về số lượng danh mục ngẫu nhiên
       const randomCategories = shuffledCategories.slice(0, limit);
-  
+
       return randomCategories;
     } catch (error) {
       console.error('Error in getRandomCategories:', error);
-      throw new HttpException('Đã xảy ra lỗi khi lấy danh mục ngẫu nhiên', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Đã xảy ra lỗi khi lấy danh mục ngẫu nhiên',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
-  
   // Lấy một category theo id
   async findOne(id: string) {
     try {
-      const category = await this.prisma.categories.findUnique({ where: { id } });
+      const category = await this.prisma.categories.findUnique({
+        where: { id },
+      });
       if (!category) {
         throw new HttpException(
           `Không tìm thấy danh mục với ID ${id}`,
-          HttpStatus.FORBIDDEN
+          HttpStatus.FORBIDDEN,
         );
       }
       return category;
     } catch (error) {
       throw new HttpException(
         'Đã xảy ra lỗi khi tìm kiếm danh mục',
-        HttpStatus.NOT_FOUND
+        HttpStatus.NOT_FOUND,
       );
     }
   }
@@ -118,14 +147,13 @@ export class CategoriesService {
       const existingCategory = await this.prisma.categories.findUnique({
         where: { id },
       });
-
       if (!existingCategory) {
         throw new HttpException(
           `Không tìm thấy danh mục với ID ${id}`,
-          HttpStatus.FORBIDDEN
+          HttpStatus.FORBIDDEN,
         );
       }
-
+  
       // Kiểm tra value có bị trùng không
       if (categories.value) {
         const duplicateValue = await this.prisma.categories.findFirst({
@@ -134,39 +162,43 @@ export class CategoriesService {
             id: { not: id },
           },
         });
-
         if (duplicateValue) {
           throw new HttpException(
             'Danh mục với giá trị này đã tồn tại',
-            HttpStatus.CONFLICT
+            HttpStatus.CONFLICT,
           );
         }
       }
-
+  
       return await this.prisma.categories.update({
         where: { id },
-        data: categories,
+        data: {
+          title: categories.title,
+          value: categories.value,
+          imageUrl: categories.imageUrl,
+          type: categories.type as CategoryType, // Cast type
+        },
       });
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      
+  
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new HttpException(
             'Danh mục với giá trị này đã tồn tại',
-            HttpStatus.CONFLICT
+            HttpStatus.CONFLICT,
           );
         }
       }
-      
+  
       throw new HttpException(
         'Đã xảy ra lỗi khi cập nhật danh mục',
-        HttpStatus.FORBIDDEN
+        HttpStatus.FORBIDDEN,
       );
     }
   }
-
   
+
   // Xóa một category
   async remove(id: string) {
     try {
@@ -177,20 +209,18 @@ export class CategoriesService {
       if (!existingCategory) {
         throw new HttpException(
           `Không tìm thấy danh mục với ID ${id}`,
-          HttpStatus.NOT_FOUND
+          HttpStatus.NOT_FOUND,
         );
       }
 
       return await this.prisma.categories.delete({ where: { id } });
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      
+
       throw new HttpException(
         'Đã xảy ra lỗi khi xóa danh mục',
-        HttpStatus.NOT_FOUND
+        HttpStatus.NOT_FOUND,
       );
     }
   }
-
-  
 }

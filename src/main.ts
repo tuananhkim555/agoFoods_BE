@@ -81,6 +81,7 @@ async function bootstrap() {
     .addTag('Categories')
     .addTag('Restaurants')
     .addTag('Foods')
+    .addTag('Drinks')
     .addTag('Rating')
     .addTag('Address')
     .addTag('Cart')

@@ -34,6 +34,22 @@ CREATE TABLE `User` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+CREATE TABLE `Categories` (
+    `id` VARCHAR(191) NOT NULL,
+    `title` VARCHAR(191) NOT NULL,
+    `value` VARCHAR(191) NOT NULL,
+    `type` ENUM('FOOD', 'DRINK') NOT NULL,
+    `imageUrl` VARCHAR(191) NOT NULL,
+    `_v` INTEGER NOT NULL DEFAULT 0,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `Categories_value_key`(`value`),
+    INDEX `Categories_type_idx`(`type`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `Shipper` (
     `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
@@ -112,89 +128,15 @@ CREATE TABLE `Food` (
     `ratingCount` INTEGER NOT NULL DEFAULT 0,
     `imageUrl` JSON NOT NULL,
     `isAvailable` BOOLEAN NOT NULL DEFAULT true,
+    `quantity` INTEGER NOT NULL DEFAULT 0,
     `status` BOOLEAN NOT NULL DEFAULT true,
+    `type` ENUM('FOOD', 'DRINK') NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
     INDEX `Food_restaurantId_idx`(`restaurantId`),
     INDEX `Food_categoryId_idx`(`categoryId`),
     INDEX `Food_code_idx`(`code`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `Rating` (
-    `id` VARCHAR(191) NOT NULL,
-    `userId` VARCHAR(191) NOT NULL,
-    `rating` DOUBLE NOT NULL,
-    `comment` VARCHAR(191) NULL,
-    `foodId` VARCHAR(191) NULL,
-    `restaurantId` VARCHAR(191) NULL,
-    `shipperId` VARCHAR(191) NULL,
-    `targetType` ENUM('FOOD', 'RESTAURANT', 'SHIPPER') NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    INDEX `Rating_userId_idx`(`userId`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `Categories` (
-    `id` VARCHAR(191) NOT NULL,
-    `title` VARCHAR(191) NOT NULL,
-    `value` VARCHAR(191) NOT NULL,
-    `imageUrl` VARCHAR(191) NOT NULL,
-    `_v` INTEGER NOT NULL DEFAULT 0,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    UNIQUE INDEX `Categories_value_key`(`value`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `Address` (
-    `id` VARCHAR(191) NOT NULL,
-    `userId` VARCHAR(191) NOT NULL,
-    `addressLine1` VARCHAR(191) NOT NULL,
-    `postalCode` VARCHAR(191) NOT NULL,
-    `default` BOOLEAN NOT NULL DEFAULT false,
-    `deliveryInstructions` VARCHAR(191) NULL,
-    `latitude` DOUBLE NOT NULL,
-    `longitude` DOUBLE NOT NULL,
-    `_v` INTEGER NOT NULL DEFAULT 0,
-
-    INDEX `UserAddress_userId_fkey`(`userId`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `Order` (
-    `id` VARCHAR(191) NOT NULL,
-    `customerId` VARCHAR(191) NOT NULL,
-    `restaurantId` VARCHAR(191) NOT NULL,
-    `status` ENUM('PENDING', 'CONFIRMED', 'PREPARING', 'PICKED_UP', 'DELIVERING', 'DELIVERED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
-    `total` DOUBLE NOT NULL,
-    `shipperId` VARCHAR(191) NULL,
-    `deliveryAddress` VARCHAR(191) NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    INDEX `Order_customerId_idx`(`customerId`),
-    INDEX `Order_restaurantId_idx`(`restaurantId`),
-    INDEX `Order_shipperId_fkey`(`shipperId`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `FoodTypes` (
-    `id` VARCHAR(191) NOT NULL,
-    `name` VARCHAR(191) NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    UNIQUE INDEX `FoodTypes_name_key`(`name`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -210,6 +152,17 @@ CREATE TABLE `FoodTags` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+CREATE TABLE `FoodTypes` (
+    `id` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `FoodTypes_name_key`(`name`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `Additives` (
     `id` VARCHAR(191) NOT NULL,
     `title` VARCHAR(191) NOT NULL,
@@ -217,6 +170,139 @@ CREATE TABLE `Additives` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `Drink` (
+    `id` VARCHAR(191) NOT NULL,
+    `restaurantId` VARCHAR(191) NOT NULL,
+    `title` VARCHAR(191) NOT NULL,
+    `time` VARCHAR(191) NOT NULL,
+    `price` DOUBLE NOT NULL,
+    `description` VARCHAR(191) NULL,
+    `categoryId` VARCHAR(191) NOT NULL,
+    `code` VARCHAR(191) NOT NULL,
+    `rating` DOUBLE NOT NULL DEFAULT 0,
+    `ratingCount` INTEGER NOT NULL DEFAULT 0,
+    `imageUrl` JSON NOT NULL,
+    `isAvailable` BOOLEAN NOT NULL DEFAULT true,
+    `status` BOOLEAN NOT NULL DEFAULT true,
+    `type` ENUM('FOOD', 'DRINK') NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    INDEX `Drink_restaurantId_idx`(`restaurantId`),
+    INDEX `Drink_categoryId_idx`(`categoryId`),
+    INDEX `Drink_code_idx`(`code`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `DrinkTags` (
+    `id` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `DrinkTags_name_key`(`name`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `DrinkTypes` (
+    `id` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `DrinkTypes_name_key`(`name`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `Rating` (
+    `id` VARCHAR(191) NOT NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `rating` DOUBLE NOT NULL,
+    `comment` VARCHAR(191) NULL,
+    `foodId` VARCHAR(191) NULL,
+    `restaurantId` VARCHAR(191) NULL,
+    `shipperId` VARCHAR(191) NULL,
+    `drinkId` VARCHAR(191) NULL,
+    `targetType` ENUM('FOOD', 'RESTAURANT', 'SHIPPER') NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    INDEX `Rating_userId_idx`(`userId`),
+    INDEX `Rating_drinkId_fkey`(`drinkId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `Address` (
+    `id` VARCHAR(191) NOT NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `addressLine1` VARCHAR(191) NOT NULL,
+    `postalCode` VARCHAR(191) NOT NULL,
+    `default` BOOLEAN NOT NULL DEFAULT false,
+    `deliveryInstructions` VARCHAR(191) NULL,
+    `latitude` DOUBLE NOT NULL,
+    `longitude` DOUBLE NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+    `_v` INTEGER NOT NULL DEFAULT 0,
+
+    INDEX `UserAddress_userId_fkey`(`userId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `Order` (
+    `id` VARCHAR(191) NOT NULL,
+    `customerId` VARCHAR(191) NOT NULL,
+    `restaurantId` VARCHAR(191) NOT NULL,
+    `status` ENUM('PENDING', 'CONFIRMED', 'PREPARING', 'PICKED_UP', 'DELIVERING', 'DELIVERED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
+    `total` DOUBLE NOT NULL,
+    `grandTotal` DOUBLE NOT NULL,
+    `shipperId` VARCHAR(191) NULL,
+    `deliveryAddress` VARCHAR(191) NULL,
+    `restaurantAddress` VARCHAR(191) NULL,
+    `paymentMethod` ENUM('CASH', 'CREDIT_CARD', 'PAYPAL', 'MOMO', 'ZALOPAY') NOT NULL,
+    `paymentStatus` ENUM('PENDING', 'PAID', 'REFUNDED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+    `instructions` VARCHAR(191) NULL,
+    `promoCode` VARCHAR(191) NULL,
+    `discountAmount` DOUBLE NULL,
+    `notes` VARCHAR(191) NULL,
+    `rating` DOUBLE NULL,
+    `feedback` VARCHAR(191) NULL,
+    `comment` VARCHAR(191) NULL,
+    `restaurantCoords` JSON NULL,
+    `recipientCoords` JSON NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    INDEX `Order_customerId_idx`(`customerId`),
+    INDEX `Order_restaurantId_idx`(`restaurantId`),
+    INDEX `Order_shipperId_fkey`(`shipperId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `OrderItem` (
+    `id` VARCHAR(191) NOT NULL,
+    `orderId` VARCHAR(191) NOT NULL,
+    `foodId` VARCHAR(191) NOT NULL,
+    `quantity` INTEGER NOT NULL,
+    `price` DOUBLE NOT NULL,
+    `instructions` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+    `drinkId` VARCHAR(191) NULL,
+
+    INDEX `OrderItem_foodId_fkey`(`foodId`),
+    INDEX `OrderItem_orderId_fkey`(`orderId`),
+    INDEX `OrderItem_drinkId_fkey`(`drinkId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -237,24 +323,11 @@ CREATE TABLE `CartItem` (
     `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
     `foodId` VARCHAR(191) NOT NULL,
-    `quantity` INTEGER NOT NULL,
+    `quantity` INTEGER NOT NULL DEFAULT 0,
     `totalPrice` DOUBLE NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `OrderItem` (
-    `id` VARCHAR(191) NOT NULL,
-    `orderId` VARCHAR(191) NOT NULL,
-    `foodId` VARCHAR(191) NOT NULL,
-    `quantity` INTEGER NOT NULL,
-    `price` DOUBLE NOT NULL,
-
-    INDEX `OrderItem_foodId_fkey`(`foodId`),
-    INDEX `OrderItem_orderId_fkey`(`orderId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -302,8 +375,8 @@ CREATE TABLE `Payment` (
     `id` VARCHAR(191) NOT NULL,
     `orderId` VARCHAR(191) NOT NULL,
     `amount` DOUBLE NOT NULL,
-    `provider` VARCHAR(191) NOT NULL,
-    `status` BOOLEAN NOT NULL DEFAULT false,
+    `method` ENUM('CASH', 'CREDIT_CARD', 'PAYPAL', 'MOMO', 'ZALOPAY') NOT NULL,
+    `status` ENUM('PENDING', 'PAID', 'REFUNDED', 'FAILED') NOT NULL DEFAULT 'PENDING',
     `transactionId` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
@@ -400,6 +473,42 @@ CREATE TABLE `_FoodAdditive` (
     INDEX `_FoodAdditive_B_index`(`B`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- CreateTable
+CREATE TABLE `_OrderItemAdditives` (
+    `A` VARCHAR(191) NOT NULL,
+    `B` VARCHAR(191) NOT NULL,
+
+    UNIQUE INDEX `_OrderItemAdditives_AB_unique`(`A`, `B`),
+    INDEX `_OrderItemAdditives_B_index`(`B`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `_DrinkAdditive` (
+    `A` VARCHAR(191) NOT NULL,
+    `B` VARCHAR(191) NOT NULL,
+
+    UNIQUE INDEX `_DrinkAdditive_AB_unique`(`A`, `B`),
+    INDEX `_DrinkAdditive_B_index`(`B`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `_DrinkTypes` (
+    `A` VARCHAR(191) NOT NULL,
+    `B` VARCHAR(191) NOT NULL,
+
+    UNIQUE INDEX `_DrinkTypes_AB_unique`(`A`, `B`),
+    INDEX `_DrinkTypes_B_index`(`B`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `_DrinkTags` (
+    `A` VARCHAR(191) NOT NULL,
+    `B` VARCHAR(191) NOT NULL,
+
+    UNIQUE INDEX `_DrinkTags_AB_unique`(`A`, `B`),
+    INDEX `_DrinkTags_B_index`(`B`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 -- AddForeignKey
 ALTER TABLE `Shipper` ADD CONSTRAINT `Shipper_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -411,6 +520,12 @@ ALTER TABLE `Food` ADD CONSTRAINT `Food_categoryId_fkey` FOREIGN KEY (`categoryI
 
 -- AddForeignKey
 ALTER TABLE `Food` ADD CONSTRAINT `Food_restaurantId_fkey` FOREIGN KEY (`restaurantId`) REFERENCES `Restaurant`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Drink` ADD CONSTRAINT `Drink_categoryId_fkey` FOREIGN KEY (`categoryId`) REFERENCES `Categories`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Drink` ADD CONSTRAINT `Drink_restaurantId_fkey` FOREIGN KEY (`restaurantId`) REFERENCES `Restaurant`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Rating` ADD CONSTRAINT `Rating_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -425,6 +540,9 @@ ALTER TABLE `Rating` ADD CONSTRAINT `restaurantRatingFkey` FOREIGN KEY (`restaur
 ALTER TABLE `Rating` ADD CONSTRAINT `shipperRatingFkey` FOREIGN KEY (`shipperId`) REFERENCES `Shipper`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `Rating` ADD CONSTRAINT `drinkRatingFkey` FOREIGN KEY (`drinkId`) REFERENCES `Drink`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `Address` ADD CONSTRAINT `Address_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -437,6 +555,15 @@ ALTER TABLE `Order` ADD CONSTRAINT `Order_restaurantId_fkey` FOREIGN KEY (`resta
 ALTER TABLE `Order` ADD CONSTRAINT `Order_shipperId_fkey` FOREIGN KEY (`shipperId`) REFERENCES `Shipper`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `OrderItem` ADD CONSTRAINT `OrderItem_drinkId_fkey` FOREIGN KEY (`drinkId`) REFERENCES `Drink`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `OrderItem` ADD CONSTRAINT `OrderItem_foodId_fkey` FOREIGN KEY (`foodId`) REFERENCES `Food`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `OrderItem` ADD CONSTRAINT `OrderItem_orderId_fkey` FOREIGN KEY (`orderId`) REFERENCES `Order`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `ShipperReview` ADD CONSTRAINT `ShipperReview_shipperId_fkey` FOREIGN KEY (`shipperId`) REFERENCES `Shipper`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -444,12 +571,6 @@ ALTER TABLE `CartItem` ADD CONSTRAINT `CartItem_userId_fkey` FOREIGN KEY (`userI
 
 -- AddForeignKey
 ALTER TABLE `CartItem` ADD CONSTRAINT `CartItem_foodId_fkey` FOREIGN KEY (`foodId`) REFERENCES `Food`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `OrderItem` ADD CONSTRAINT `OrderItem_foodId_fkey` FOREIGN KEY (`foodId`) REFERENCES `Food`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `OrderItem` ADD CONSTRAINT `OrderItem_orderId_fkey` FOREIGN KEY (`orderId`) REFERENCES `Order`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Notification` ADD CONSTRAINT `Notification_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -468,9 +589,6 @@ ALTER TABLE `Comment` ADD CONSTRAINT `Comment_foodId_fkey` FOREIGN KEY (`foodId`
 
 -- AddForeignKey
 ALTER TABLE `Comment` ADD CONSTRAINT `Comment_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `Delivery` ADD CONSTRAINT `Delivery_orderId_fkey` FOREIGN KEY (`orderId`) REFERENCES `Order`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Delivery` ADD CONSTRAINT `Delivery_shipperId_fkey` FOREIGN KEY (`shipperId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -501,3 +619,27 @@ ALTER TABLE `_FoodAdditive` ADD CONSTRAINT `_FoodAdditive_A_fkey` FOREIGN KEY (`
 
 -- AddForeignKey
 ALTER TABLE `_FoodAdditive` ADD CONSTRAINT `_FoodAdditive_B_fkey` FOREIGN KEY (`B`) REFERENCES `Food`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `_OrderItemAdditives` ADD CONSTRAINT `_OrderItemAdditives_A_fkey` FOREIGN KEY (`A`) REFERENCES `Additives`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `_OrderItemAdditives` ADD CONSTRAINT `_OrderItemAdditives_B_fkey` FOREIGN KEY (`B`) REFERENCES `OrderItem`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `_DrinkAdditive` ADD CONSTRAINT `_DrinkAdditive_A_fkey` FOREIGN KEY (`A`) REFERENCES `Additives`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `_DrinkAdditive` ADD CONSTRAINT `_DrinkAdditive_B_fkey` FOREIGN KEY (`B`) REFERENCES `Drink`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `_DrinkTypes` ADD CONSTRAINT `_DrinkTypes_A_fkey` FOREIGN KEY (`A`) REFERENCES `Drink`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `_DrinkTypes` ADD CONSTRAINT `_DrinkTypes_B_fkey` FOREIGN KEY (`B`) REFERENCES `DrinkTypes`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `_DrinkTags` ADD CONSTRAINT `_DrinkTags_A_fkey` FOREIGN KEY (`A`) REFERENCES `Drink`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `_DrinkTags` ADD CONSTRAINT `_DrinkTags_B_fkey` FOREIGN KEY (`B`) REFERENCES `DrinkTags`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
