@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `Rating` MODIFY `targetType` ENUM('DRINK', 'FOOD', 'RESTAURANT', 'SHIPPER') NOT NULL;

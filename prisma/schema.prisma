@@ -489,6 +489,7 @@ enum Gender {
 }
 
 enum TargetType {
+  DRINK
   FOOD
   RESTAURANT
   SHIPPER

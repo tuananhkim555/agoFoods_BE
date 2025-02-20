@@ -3,6 +3,7 @@ import { IsEnum, IsNotEmpty, IsNumber, IsString, IsOptional, IsUUID } from 'clas
 
 export enum TargetType {
   FOOD = 'FOOD',
+  DRINK = 'DRINK',
   RESTAURANT = 'RESTAURANT',
   SHIPPER = 'SHIPPER',
 }
@@ -13,15 +14,20 @@ export class CreateRatingDto {
   @IsNumber()
   rating: number;
 
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  userId: string;
+  comment?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   foodId?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  drinkId?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -33,15 +39,11 @@ export class CreateRatingDto {
   @IsString()
   shipperId?: string;
 
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  comment?: string;
-
   @ApiProperty({ enum: TargetType })
   @IsEnum(TargetType)
   targetType: TargetType;
 }
+
 
 export class DeleteRatingDto {
   @ApiProperty({

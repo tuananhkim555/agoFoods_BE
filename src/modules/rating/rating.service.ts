@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { CreateRatingDto, TargetType} from './dto/rating.dto';
 import { PrismaService } from 'src/common/prisma/prisma.service';
 import { generateRatingId } from 'src/common/utils/format-id';
@@ -12,73 +12,103 @@ export class RatingService {
 
 
   // Thêm đánh giá cho món ăn
-  async createRating(createRatingDto: CreateRatingDto) {
-    const { userId, foodId, restaurantId, shipperId, rating, comment, targetType } =
-      createRatingDto;
-  
+  async createRating(createRatingDto: CreateRatingDto, req: any) {
     try {
-      // Kiểm tra tồn tại của user
-      const user = await this.prisma.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        throw new HttpException(`User with ID ${userId} not found`, HttpStatus.NOT_FOUND);
+      // 🛠 Kiểm tra userId từ JWT
+      const userId = req.user?.id; 
+      if (!userId) {
+        throw new UnauthorizedException('Người dùng chưa đăng nhập hoặc token không hợp lệ.');
       }
   
-      // Kiểm tra sự tồn tại của mục tiêu dựa trên targetType
+      const { foodId, drinkId, restaurantId, shipperId, rating, comment, targetType } = createRatingDto;
+  
+      // 🛠 Kiểm tra targetType hợp lệ
       let target;
-      if (targetType === TargetType.FOOD && foodId) {
-        target = await this.prisma.food.findUnique({ where: { id: foodId } });
-        if (!target) {
-          throw new HttpException(`Food with ID ${foodId} not found`, HttpStatus.NOT_FOUND);
-        }
-      } else if (targetType === TargetType.RESTAURANT && restaurantId) {
-        target = await this.prisma.restaurant.findUnique({ where: { id: restaurantId } });
-        if (!target) {
-          throw new HttpException(`Restaurant with ID ${restaurantId} not found`, HttpStatus.NOT_FOUND);
-        }
-      } else if (targetType === TargetType.SHIPPER && shipperId) {
-        target = await this.prisma.shipper.findUnique({ where: { id: shipperId } });
-        if (!target) {
-          throw new HttpException(`Shipper with ID ${shipperId} not found`, HttpStatus.NOT_FOUND);
-        }
-      } else {
-        throw new HttpException('Invalid targetType or missing target ID', HttpStatus.BAD_REQUEST);
+      switch (targetType) {
+        case TargetType.FOOD:
+          if (!foodId) throw new BadRequestException('foodId không được để trống');
+          target = await this.prisma.food.findUnique({ where: { id: foodId } });
+          break;
+        case TargetType.DRINK:
+          if (!drinkId) throw new BadRequestException('drinkId không được để trống');
+          target = await this.prisma.drink.findUnique({ where: { id: drinkId } });
+          break;
+        case TargetType.RESTAURANT:
+          if (!restaurantId) throw new BadRequestException('restaurantId không được để trống');
+          target = await this.prisma.restaurant.findUnique({ where: { id: restaurantId } });
+          break;
+        case TargetType.SHIPPER:
+          if (!shipperId) throw new BadRequestException('shipperId không được để trống');
+          target = await this.prisma.shipper.findUnique({ where: { id: shipperId } });
+          break;
+        default:
+          throw new BadRequestException(`targetType không hợp lệ: ${targetType}`);
       }
   
-      // Tạo ID mới cho rating
+      // 🛠 Kiểm tra target có tồn tại không
+      if (!target) {
+        throw new NotFoundException(`${targetType} với ID không tồn tại.`);
+      }
+  
+      // 🛠 Tạo ID mới cho rating
       const ratingId = await generateRatingId(this.prisma);
   
-      // Tạo một rating mới
+      // 🛠 Tạo rating mới
       const newRating = await this.prisma.rating.create({
         data: {
           id: ratingId,
           user: { connect: { id: userId } },
           rating,
           comment,
-          targetType: TargetType[targetType],
+          targetType,
           ...(foodId && { food: { connect: { id: foodId } } }),
+          ...(drinkId && { drink: { connect: { id: drinkId } } }),
           ...(restaurantId && { restaurant: { connect: { id: restaurantId } } }),
           ...(shipperId && { shipper: { connect: { id: shipperId } } }),
         },
       });
   
-      // Cập nhật ratingCount và rating cho mục tiêu được đánh giá
+      // 🛠 Cập nhật rating trung bình cho mục tiêu
       if (targetType === TargetType.FOOD && foodId) {
         await this.updateFoodRating(foodId);
-      } else if (targetType === TargetType.RESTAURANT && restaurantId) {
+      }
+      if (targetType === TargetType.DRINK && drinkId) {
+        await this.updateDrinkRating(drinkId);
+      }
+      if (targetType === TargetType.RESTAURANT && restaurantId) {
         await this.updateRestaurantRating(restaurantId);
-      } else if (targetType === TargetType.SHIPPER && shipperId) {
+      }
+      if (targetType === TargetType.SHIPPER && shipperId) 
         await this.updateShipperRating(shipperId);
-      }
   
-      return newRating;
+      return {
+        status: 'success',
+        message: 'Đánh giá thành công',
+        data: newRating,
+      };
     } catch (error) {
-      console.error('Error creating rating:', error);
-      if (error instanceof PrismaClientKnownRequestError) {
-        console.error('Prisma Error Code:', error.code);
-        console.error('Prisma Error Message:', error.message);
-      }
-      throw error;
+      console.error('❌ Error creating rating:', error);
+      throw new BadRequestException(error.message || 'Không thể tạo đánh giá');
     }
+  }
+  
+  // Cập nhật điểm đánh giá cho đồ uống
+  async updateDrinkRating(drinkId: string) {
+    const ratings = (await this.prisma.rating.findMany({
+      where: { drinkId },
+      select: { rating: true },
+    })) || []; // ✅ Đảm bảo `ratings` luôn là mảng
+  
+    const ratingCount = ratings.length; // ✅ Lấy số lượng đánh giá
+    const avgRating =
+      ratingCount > 0
+        ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratingCount
+        : 0;
+  
+    await this.prisma.drink.update({
+      where: { id: drinkId },
+      data: { rating: avgRating, ratingCount }, // ✅ Cập nhật luôn ratingCount
+    });
   }
   
   // Cập nhật điểm đánh giá cho món ăn

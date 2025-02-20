@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Query, HttpException, HttpStatus, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Query, HttpException, HttpStatus, Delete, Req } from '@nestjs/common';
 import { RatingService } from './rating.service';
 import { CreateRatingDto, TargetType} from './dto/rating.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -16,8 +16,8 @@ export class RatingController {
 @ApiResponse({ status: 201, description: 'Rating created successfully.' })
 @ApiResponse({ status: 400, description: 'Bad request.' })
 @ApiResponse({ status: 500, description: 'Internal server error.' })
-async createRating(@Body() createRatingDto: CreateRatingDto) {
-  return this.ratingsService.createRating(createRatingDto);
+async createRating(@Body() createRatingDto: CreateRatingDto, @Req() req: Request) {
+  return this.ratingsService.createRating(createRatingDto, req);
 }
 
 
