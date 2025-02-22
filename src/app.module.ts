@@ -20,6 +20,11 @@ import { AddressModule } from './modules/address/address.module';
 import { CartModule } from './modules/cart/cart.module';
 import { OrderModule } from './modules/order/order.module';
 import { DrinksModule } from './modules/drinks/drinks.module';
+import * as multer from 'multer';
+
+const storage = multer.memoryStorage(); // Lưu vào RAM để có `file.buffer`
+export const upload = multer({ storage });
+
 @Module({
   imports: [
     AdminModule,

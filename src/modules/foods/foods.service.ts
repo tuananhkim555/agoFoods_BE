@@ -17,39 +17,39 @@ import { shuffleArray } from 'src/common/utils/array-utils';
 export class FoodsService {
   constructor(private prisma: PrismaService) {}
 
-
-
   // Tạo món ăn
   async createFood(createFoodDto: CreateFoodDto) {
     try {
       // 1. Tạo ID cho món ăn
       const foodId = await generateFoodId(this.prisma);
-  
+
       // 2. Kiểm tra nhà hàng có tồn tại không (Chỉ where theo ID)
       const restaurant = await this.prisma.restaurant.findUnique({
         where: { id: createFoodDto.restaurantId },
         select: { id: true },
       });
-  
+
       if (!restaurant) {
         throw new BadRequestException('Nhà hàng không tồn tại');
       }
-  
+
       // 3. Kiểm tra danh mục có tồn tại không (Chỉ where theo ID)
       const category = await this.prisma.categories.findUnique({
         where: { id: createFoodDto.categoryId },
         select: { id: true, type: true, title: true },
       });
-  
+
       if (!category) {
         throw new BadRequestException('Danh mục không tồn tại');
       }
-  
+
       // 4. Kiểm tra type của category (Chỉ chấp nhận FOOD)
       if (category.type !== CategoryType.FOOD) {
-        throw new BadRequestException(`Bạn đã chọn danh mục đồ uống '${category.title}' lỗi không hợp lệ,vui lòng chọn danh mục đồ ăn - FOOD`);
+        throw new BadRequestException(
+          `Bạn đã chọn danh mục đồ uống '${category.title}' lỗi không hợp lệ,vui lòng chọn danh mục đồ ăn - FOOD`,
+        );
       }
-  
+
       // 5. Xử lý foodTags
       const foodTags = await Promise.all(
         createFoodDto.foodTags.map(async (tagName) => {
@@ -62,7 +62,7 @@ export class FoodsService {
           });
         }),
       );
-  
+
       // 6. Xử lý foodTypes
       const foodTypes = await Promise.all(
         createFoodDto.foodTypes.map(async (typeName) => {
@@ -75,14 +75,14 @@ export class FoodsService {
           });
         }),
       );
-  
+
       // 7. Xử lý additives
       const additives = await Promise.all(
         createFoodDto.additives.map(async (additive) => {
           const existingAdditive = await this.prisma.additives.findFirst({
             where: { title: additive.title },
           });
-  
+
           if (existingAdditive) {
             return {
               id: existingAdditive.id,
@@ -90,7 +90,7 @@ export class FoodsService {
               price: existingAdditive.price,
             };
           }
-  
+
           const additiveId = await generateId(this.prisma, 'Add', 'additives');
           return await this.prisma.additives.create({
             data: {
@@ -102,7 +102,7 @@ export class FoodsService {
           });
         }),
       );
-  
+
       // 8. Kiểm tra số lượng tags, types, additives có đúng không
       if (foodTypes.length !== createFoodDto.foodTypes.length) {
         throw new BadRequestException('Một hoặc nhiều foodTypes không tồn tại');
@@ -113,7 +113,7 @@ export class FoodsService {
       if (additives.length !== createFoodDto.additives.length) {
         throw new BadRequestException('Một hoặc nhiều additives không tồn tại');
       }
-  
+
       // 9. Tạo món ăn
       const food = await this.prisma.food.create({
         data: {
@@ -122,10 +122,12 @@ export class FoodsService {
           categoryId: category.id,
           foodTypes: { connect: foodTypes.map((type) => ({ id: type.id })) },
           foodTags: { connect: foodTags.map((tag) => ({ id: tag.id })) },
-          additives: { connect: additives.map((additive) => ({ id: additive.id })) },
+          additives: {
+            connect: additives.map((additive) => ({ id: additive.id })),
+          },
         },
       });
-  
+
       return {
         status: 'success',
         message: 'Tạo món ăn thành công',
@@ -141,171 +143,18 @@ export class FoodsService {
       throw new BadRequestException(error.message || 'Không thể tạo món ăn');
     }
   }
-  
 
   // Lấy tất cả danh sách món ăn
-async getFoodAll(query: any) {
-  let { pageIndex, pageSize, skip = 0, take = 10, restaurantId } = query;
+  async getFoodAll(query: any) {
+    let { pageIndex, pageSize, skip = 0, take = 10, restaurantId } = query;
 
-  pageIndex = +pageIndex > 0 ? +pageIndex : 1;
-  pageSize = +pageSize > 0 ? +pageSize : 3;
+    pageIndex = +pageIndex > 0 ? +pageIndex : 1;
+    pageSize = +pageSize > 0 ? +pageSize : 3;
 
-  skip = (pageIndex - 1) * pageSize;
-  const totalItems = await this.prisma.food.count({
-    where: { restaurantId, isAvailable: true },
-  });
-  const totalPages = Math.ceil(totalItems / pageSize);
-
-  const foods = await this.prisma.food.findMany({
-    where: {
-      restaurantId,
-      isAvailable: true,
-    },
-    skip: Number(skip),
-    take: Number(take),
-    include: {
-      category: true,
-      foodTags: true,
-      foodTypes: true,
-      additives: true,
-    },
-  });
-
-  return {
-    data: {
-      pageIndex,
-      pageSize,
-      totalItems,
-      totalPages,
-      items: foods.map((food) => ({
-        ...food,
-        foodTags: JsonParser.safeJsonParse(food.foodTags),
-        foodTypes: JsonParser.safeJsonParse(food.foodTypes),
-        additives: JsonParser.safeJsonParse(food.additives),
-      })),
-    },
-  };
-}
-
-
-  // Lấy thông tin món ăn bằng ID
-async getFoodById(id: string) {
-  try {
-    if (!id) {
-      throw new BadRequestException('ID món ăn không hợp lệ');
-    }
-
-    console.log('[getFood] Looking for food with ID:', id);
-
-    const food = await this.prisma.food.findUnique({
-      where: { id },
-      include: {
-        category: true,
-        foodTags: true,
-        foodTypes: true,
-        additives: true,
-      },
-    });
-
-    if (!food) {
-      throw new NotFoundException('Không tìm thấy món ăn');
-    }
-
-    return {
-      data: {
-        ...food,
-        foodTags: JsonParser.safeJsonParse(food.foodTags) || [],
-        foodTypes: JsonParser.safeJsonParse(food.foodTypes) || [],
-        additives: JsonParser.safeJsonParse(food.additives) || [],
-      },
-    };
-  } catch (error) {
-    console.error('[getFood] Error:', error);
-    throw new InternalServerErrorException('Lỗi hệ thống khi lấy món ăn');
-  }
-}
-
-
-  // Lấy danh sách món ăn ngẫu nhiên
-async getRandomFoods(code: string) {
-  try {
-    let foods = await this.prisma.food.findMany({
-      where: {
-        code,
-        isAvailable: true,
-      },
-      take: 5,
-      orderBy: {
-        rating: 'desc',
-      },
-      include: {
-        category: true,
-        foodTags: true,
-        foodTypes: true,
-        additives: true,
-      },
-    });
-
-    if (!foods.length) {
-      throw new NotFoundException('Không tìm thấy món ăn');
-    }
-
-    foods = shuffleArray(foods).slice(0, 10);
-
-    return {
-      data: foods.map((food) => ({
-        ...food,
-        foodTags: JsonParser.safeJsonParse(food.foodTags),
-        foodTypes: JsonParser.safeJsonParse(food.foodTypes),
-        additives: JsonParser.safeJsonParse(food.additives),
-      })),
-    };
-  } catch (error) {
-    if (error instanceof NotFoundException) {
-      throw error;
-    }
-    throw new BadRequestException(
-      'Không thể lấy danh sách món ăn ngẫu nhiên',
-    );
-  }
-}
-
-
-  // Lấy món ăn theo nhà hàng
-async getFoodsByRestaurant(
-  restaurantId: string,
-  query: { pageIndex?: number; pageSize?: number },
-) {
-  try {
-    if (!restaurantId) {
-      throw new BadRequestException('Thiếu mã nhà hàng');
-    }
-
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-    });
-
-    if (!restaurant) {
-      throw new NotFoundException('Không tìm thấy nhà hàng');
-    }
-
-    const pageIndex = Number(query.pageIndex) || 1;
-    const pageSize = Number(query.pageSize) || 10;
-    const skip = (pageIndex - 1) * pageSize;
-
+    skip = (pageIndex - 1) * pageSize;
     const totalItems = await this.prisma.food.count({
-      where: {
-        restaurantId,
-        isAvailable: true,
-      },
+      where: { restaurantId, isAvailable: true },
     });
-
-    if (totalItems === 0) {
-      throw new NotFoundException(
-        'Không tìm thấy món ăn nào trong nhà hàng này',
-      );
-    }
-
     const totalPages = Math.ceil(totalItems / pageSize);
 
     const foods = await this.prisma.food.findMany({
@@ -313,11 +162,8 @@ async getFoodsByRestaurant(
         restaurantId,
         isAvailable: true,
       },
-      skip,
-      take: pageSize,
-      orderBy: {
-        createdAt: 'desc',
-      },
+      skip: Number(skip),
+      take: Number(take),
       include: {
         category: true,
         foodTags: true,
@@ -327,7 +173,6 @@ async getFoodsByRestaurant(
     });
 
     return {
-      status: 'success',
       data: {
         pageIndex,
         pageSize,
@@ -341,13 +186,242 @@ async getFoodsByRestaurant(
         })),
       },
     };
-  } catch (error) {
-    console.error('[getFoodsByRestaurant] Error:', error);
-    throw new InternalServerErrorException(
-      'Lỗi hệ thống khi lấy danh sách món ăn',
-    );
   }
-}
+
+  // 🔎 Tìm kiếm món ăn
+  async searchAll(searchTerm: string, query: any) {
+    try {
+      if (!searchTerm || searchTerm.trim().length === 0) {
+        throw new BadRequestException('Vui lòng nhập từ khóa tìm kiếm');
+      }
+
+      console.log('[searchAll] Searching for:', searchTerm);
+
+      // ✅ Mặc định phân trang nếu không có query
+      let pageIndex = Number(query.pageIndex) > 0 ? Number(query.pageIndex) : 1;
+      let pageSize = Number(query.pageSize) > 0 ? Number(query.pageSize) : 10;
+      let skip = (pageIndex - 1) * pageSize;
+
+      // ✅ Tính tổng số món ăn & đồ uống
+      const totalFoods = await this.prisma.food.count({
+        where: {
+          OR: [
+            { title: { contains: searchTerm.toLowerCase() } },
+            { description: { contains: searchTerm.toLowerCase() } },
+          ],
+        },
+      });
+
+      const totalDrinks = await this.prisma.drink.count({
+        where: {
+          OR: [
+            { title: { contains: searchTerm } },
+            { description: { contains: searchTerm } },
+          ],
+        },
+      });
+
+      // ✅ Truy vấn dữ liệu có phân trang
+      const foods = await this.prisma.food.findMany({
+        where: {
+          OR: [
+            { title: { contains: searchTerm.toLowerCase() } },
+            { description: { contains: searchTerm.toLowerCase() } },
+          ],
+        },
+        skip,
+        take: pageSize,
+      });
+
+      const drinks = await this.prisma.drink.findMany({
+        where: {
+          OR: [
+            { title: { contains: searchTerm } },
+            { description: { contains: searchTerm } },
+          ],
+        },
+        skip,
+        take: pageSize,
+      });
+
+      // ✅ Tính tổng số tất cả môn ăn & đồ uống
+      const totalResults = totalFoods + totalDrinks;
+      const totalPages = Math.ceil(totalResults / pageSize);
+
+      return {
+        foods,
+        drinks,
+        pagination: {
+          pageIndex,
+          pageSize,
+          totalResults,
+          totalPages,
+        },
+      };
+    } catch (error) {
+      console.error('[searchAll] Error:', error);
+      throw new InternalServerErrorException('Lỗi hệ thống khi tìm kiếm');
+    }
+  }
+
+  // Lấy món ăn theo ID
+  async getFoodById(id: string) {
+    try {
+      console.log('[getFood] Received ID:', id); // ✅ Log kiểm tra ID
+
+      if (!id) {
+        throw new BadRequestException('ID món ăn không hợp lệ');
+      }
+
+      const food = await this.prisma.food.findUnique({
+        where: { id },
+        include: {
+          category: true,
+          foodTags: true,
+          foodTypes: true,
+          additives: true,
+        },
+      });
+
+      if (!food) {
+        throw new NotFoundException('Không tìm thấy món ăn');
+      }
+
+      return {
+        data: {
+          ...food,
+          foodTags: JsonParser.safeJsonParse(food.foodTags) || [],
+          foodTypes: JsonParser.safeJsonParse(food.foodTypes) || [],
+          additives: JsonParser.safeJsonParse(food.additives) || [],
+        },
+      };
+    } catch (error) {
+      console.error('[getFood] Error:', error);
+      throw new InternalServerErrorException('Lỗi hệ thống khi lấy món ăn');
+    }
+  }
+
+  // Lấy danh sách món ăn ngẫu nhiên
+  async getRandomFoods(code: string) {
+    try {
+      let foods = await this.prisma.food.findMany({
+        where: {
+          code,
+          isAvailable: true,
+        },
+        take: 5,
+        orderBy: {
+          rating: 'desc',
+        },
+        include: {
+          category: true,
+          foodTags: true,
+          foodTypes: true,
+          additives: true,
+        },
+      });
+
+      if (!foods.length) {
+        throw new NotFoundException('Không tìm thấy món ăn');
+      }
+
+      foods = shuffleArray(foods).slice(0, 10);
+
+      return {
+        data: foods.map((food) => ({
+          ...food,
+          foodTags: JsonParser.safeJsonParse(food.foodTags),
+          foodTypes: JsonParser.safeJsonParse(food.foodTypes),
+          additives: JsonParser.safeJsonParse(food.additives),
+        })),
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(
+        'Không thể lấy danh sách món ăn ngẫu nhiên',
+      );
+    }
+  }
+
+  // Lấy món ăn theo nhà hàng
+  async getFoodsByRestaurant(
+    restaurantId: string,
+    query: { pageIndex?: number; pageSize?: number },
+  ) {
+    try {
+      if (!restaurantId) {
+        throw new BadRequestException('Thiếu mã nhà hàng');
+      }
+
+      const restaurant = await this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+      });
+
+      if (!restaurant) {
+        throw new NotFoundException('Không tìm thấy nhà hàng');
+      }
+
+      const pageIndex = Number(query.pageIndex) || 1;
+      const pageSize = Number(query.pageSize) || 10;
+      const skip = (pageIndex - 1) * pageSize;
+
+      const totalItems = await this.prisma.food.count({
+        where: {
+          restaurantId,
+          isAvailable: true,
+        },
+      });
+
+      if (totalItems === 0) {
+        throw new NotFoundException(
+          'Không tìm thấy món ăn nào trong nhà hàng này',
+        );
+      }
+
+      const totalPages = Math.ceil(totalItems / pageSize);
+
+      const foods = await this.prisma.food.findMany({
+        where: {
+          restaurantId,
+          isAvailable: true,
+        },
+        skip,
+        take: pageSize,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: {
+          category: true,
+          foodTags: true,
+          foodTypes: true,
+          additives: true,
+        },
+      });
+
+      return {
+        status: 'success',
+        data: {
+          pageIndex,
+          pageSize,
+          totalItems,
+          totalPages,
+          items: foods.map((food) => ({
+            ...food,
+            foodTags: JsonParser.safeJsonParse(food.foodTags),
+            foodTypes: JsonParser.safeJsonParse(food.foodTypes),
+            additives: JsonParser.safeJsonParse(food.additives),
+          })),
+        },
+      };
+    } catch (error) {
+      console.error('[getFoodsByRestaurant] Error:', error);
+      throw new InternalServerErrorException(
+        'Lỗi hệ thống khi lấy danh sách món ăn',
+      );
+    }
+  }
 
   // Lấy món ăn theo danh mục và code
   async getFoodsByCategoryAndCode(
@@ -377,7 +451,6 @@ async getFoodsByRestaurant(
       const restaurantWithCode = await this.prisma.restaurant.findFirst({
         where: { code },
       });
-      
 
       // 4. Validate and set pagination
       const pageIndex = Number(query.pageIndex) || 1;
@@ -433,7 +506,7 @@ async getFoodsByRestaurant(
           totalPages,
           items: foods.map((food) => ({
             ...food,
-            foodTags: food.foodTags, 
+            foodTags: food.foodTags,
             foodTypes: food.foodTypes,
             additives: food.additives,
           })),
@@ -453,62 +526,6 @@ async getFoodsByRestaurant(
     }
   }
 
-  // 🔎 Tìm kiếm món ăn
-  async searchFoods(
-    searchText: string,
-    query?: { pageIndex?: number; pageSize?: number },
-  ) {
-    try {
-      const decodedSearchText = decodeURIComponent(searchText.trim());
-      console.log('[searchFoods] Searching for:', decodedSearchText);
-
-      const where: Prisma.FoodWhereInput = {
-        OR: [
-          { title: { contains: decodedSearchText } },
-          {
-            description: decodedSearchText
-              ? { contains: decodedSearchText }
-              : undefined,
-          },
-          { foodTags: { some: { name: { contains: decodedSearchText } } } },
-        ],
-        isAvailable: true,
-        status: true,
-      };
-
-      const totalItems = await this.prisma.food.count({ where });
-      if (totalItems === 0)
-        throw new NotFoundException(
-          `Không tìm thấy món ăn với từ khóa "${decodedSearchText}"`,
-        );
-
-      const pageIndex = query?.pageIndex ?? 1;
-      const pageSize = query?.pageSize ?? 10;
-      const skip = (pageIndex - 1) * pageSize;
-
-      const foods = await this.prisma.food.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy: { rating: 'desc' },
-        include: { category: true, restaurant: true },
-      });
-
-      await this.prisma.$disconnect(); // Đóng Prisma connection
-
-      return {
-        totalItems,
-        pageIndex,
-        pageSize,
-        totalPages: Math.ceil(totalItems / pageSize),
-        items: foods,
-      };
-    } catch (error) {
-      console.error('[searchFoods] Error:', error);
-      throw new BadRequestException('Lỗi khi tìm kiếm món ăn');
-    }
-  }
-
   // Cập nhật món ăn
   async updateFood(id: string, updateFoodDto: UpdateFoodDto) {
     try {
@@ -517,11 +534,11 @@ async getFoodsByRestaurant(
         where: { id },
         include: { foodTags: true, foodTypes: true, additives: true },
       });
-  
+
       if (!food) {
         throw new BadRequestException('Không tìm thấy món ăn');
       }
-  
+
       // Tạo ID cho các tag
       const foodTags = await Promise.all(
         updateFoodDto.foodTags.map(async (tagName) => {
@@ -534,11 +551,11 @@ async getFoodsByRestaurant(
           });
         }),
       );
-  
+
       // Tạo ID cho các loại món ăn
       const foodTypes = await Promise.all(
         updateFoodDto.foodTypes.map(async (typeName) => {
-          const typeId = await generateId(this.prisma,'Type', 'foodTypes');
+          const typeId = await generateId(this.prisma, 'Type', 'foodTypes');
           return await this.prisma.foodTypes.upsert({
             where: { name: typeName },
             update: {},
@@ -547,14 +564,14 @@ async getFoodsByRestaurant(
           });
         }),
       );
-  
+
       // Tạo ID cho các additives và tránh tạo bản ghi trùng
       const additives = await Promise.all(
         updateFoodDto.additives.map(async (additive) => {
           const existingAdditive = await this.prisma.additives.findFirst({
             where: { title: additive.title },
           });
-  
+
           if (existingAdditive) {
             return {
               id: existingAdditive.id,
@@ -562,9 +579,9 @@ async getFoodsByRestaurant(
               price: existingAdditive.price,
             };
           }
-  
+
           const additiveId = await generateId(this.prisma, 'Add', 'additives');
-  
+
           return await this.prisma.additives.create({
             data: {
               id: additiveId,
@@ -575,7 +592,7 @@ async getFoodsByRestaurant(
           });
         }),
       );
-  
+
       // Kiểm tra xem có thiếu bất kỳ tags, types, additives nào không
       if (foodTypes.length !== updateFoodDto.foodTypes.length) {
         throw new BadRequestException('Một hoặc nhiều foodTypes không tồn tại');
@@ -586,7 +603,7 @@ async getFoodsByRestaurant(
       if (additives.length !== updateFoodDto.additives.length) {
         throw new BadRequestException('Một hoặc nhiều additives không tồn tại');
       }
-  
+
       // Cập nhật món ăn
       const updatedFood = await this.prisma.food.update({
         where: { id },
@@ -609,7 +626,7 @@ async getFoodsByRestaurant(
           restaurant: true,
         },
       });
-  
+
       return {
         status: 'success',
         message: 'Cập nhật món ăn thành công',
@@ -628,7 +645,6 @@ async getFoodsByRestaurant(
       throw new BadRequestException('Không thể cập nhật món ăn');
     }
   }
-  
 
   // Xóa món ăn
   async deleteFood(id: string) {
@@ -702,7 +718,6 @@ async getFoodsByRestaurant(
       const restaurantWithCode = await this.prisma.restaurant.findFirst({
         where: { code },
       });
-     
 
       // 4. Get 5 random foods
       const foods = await this.prisma.food.findMany({
@@ -731,10 +746,10 @@ async getFoodsByRestaurant(
       return {
         data: foods.map((food) => ({
           ...food,
-            foodTags: food.foodTags, 
-            foodTypes: food.foodTypes,
-            additives: food.additives,
-          })),
+          foodTags: food.foodTags,
+          foodTypes: food.foodTypes,
+          additives: food.additives,
+        })),
       };
     } catch (error) {
       if (error instanceof NotFoundException) {

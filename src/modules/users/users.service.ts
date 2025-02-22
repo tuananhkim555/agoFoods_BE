@@ -5,8 +5,7 @@ import { Gender, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { Request } from 'express';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-
+import { compressAndUploadImage } from 'src/common/multer/buffer-image';
 declare module 'express' {
     interface Request {
         user?: any;  // Or define a more specific type for your user
@@ -279,39 +278,35 @@ export class UsersService {
         });
     }
   
-    //Tải ảnh đại diện
-    uploadAvatar = async (file: Express.Multer.File, userId: number, p0: string) => {
-        if (!file) {
-            throw new BadRequestException('No file uploaded');
-        }
-
-        try {
-            const avatarUrl = `uploads/avatars/${file.filename}`;
-            
-            const updatedUser = await this.prisma.user.update({
-                where: { id: String(userId) },
-                data: {
-                    avatar: avatarUrl,
-                    updatedAt: new Date(),
-                },
-                select: {
-                    id: true,
-                    fullName: true,
-                    email: true,
-                    avatar: true,
-                },
-            });
-
-            return {
-                message: 'Avatar uploaded successfully',
-                user: updatedUser,
-            };
-        } catch (error) {
-            console.error('Upload avatar error:', error);
-            throw new BadRequestException('Failed to update avatar');
-        }
+    //Tải ảnh đại diện    
+    async uploadAvatar(file: Express.Multer.File, userId: number) {
+      if (!file) {
+        throw new BadRequestException('No file uploaded');
+      }
+    
+      try {
+        const avatarUrl: string = await compressAndUploadImage(file); // Avatar URL luôn là string
+    
+        // Cập nhật avatar trong database
+        const updatedUser = await this.prisma.user.update({
+          where: { id: String(userId) },
+          data: { avatar: avatarUrl, updatedAt: new Date() },
+          select: { id: true, fullName: true, email: true, avatar: true },
+        });
+    
+        return {
+          message: 'Avatar uploaded and compressed successfully',
+          user: updatedUser,
+        };
+      } catch (error) {
+        console.error('Upload avatar error:', error);
+        throw new BadRequestException('Failed to update avatar');
+      }
     }
+    
+    
 
+    
     // Set quyền ADMIN
     async setAdmin(userId: string) {
         try {

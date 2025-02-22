@@ -414,7 +414,6 @@ export class AuthService {
     });
   }
 
-  // Xác thực email
   // Phương thức xác thực email
   async verifyEmail(token: string): Promise<void> {
     const user = await this.prisma.user.findUnique({

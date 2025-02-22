@@ -1,4 +1,18 @@
-import { Controller, Post, Body, UseGuards, Param, Put, Delete, Query, UseInterceptors, UploadedFile, Req, BadRequestException, Get } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Param,
+  Put,
+  Delete,
+  Query,
+  UseInterceptors,
+  UploadedFile,
+  Req,
+  BadRequestException,
+  Get,
+} from '@nestjs/common';
 import { FoodsService } from './foods.service';
 import { CreateFoodDto } from './dto/create-food.dto';
 import { UpdateFoodDto } from './dto/update-food.dto';
@@ -6,7 +20,12 @@ import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
-import { ApiBearerAuth, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiResponse,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 
 @Controller('api/foods')
@@ -19,18 +38,17 @@ export class FoodsController {
   @ApiResponse({
     status: 200,
     description: 'Return the category',
-    type: [CreateFoodDto]
+    type: [CreateFoodDto],
   })
   @Post()
   async createFood(@Body() createFoodDto: CreateFoodDto) {
     return this.foodsService.createFood(createFoodDto);
   }
 
-
   //Lấy tất cả danh sách món ăn
   @Public()
   @ApiResponse({
-    type: [CreateFoodDto]
+    type: [CreateFoodDto],
   })
   @Get('all')
   @ResponseMessage('Lấy danh sách món ăn thành công')
@@ -38,30 +56,23 @@ export class FoodsController {
     return this.foodsService.getFoodAll(query);
   }
 
+  // ✅ API tìm kiếm phải đặt trước
+   @UseGuards(JwtAuthGuard)
+   @ApiBearerAuth('JWT-auth')
+   @Get('search')
+   async searchAll(
+     @Query('searchTerm') searchTerm: string,
+   ) {
+     console.log('[Controller] Received searchTerm:', searchTerm);
+     return this.foodsService.searchAll(searchTerm, {});
+   }
 
-     // Search món ăn (nên nhớ đặt trước /:id)
-     @Get(':search')
-     @UseGuards(JwtAuthGuard)
-     @ApiBearerAuth('JWT-auth')
-     @ApiQuery({ name: 'text', required: true, description: 'Từ khóa tìm kiếm' })
-     @ApiQuery({ name: 'pageIndex', required: false, type: Number, description: 'Trang hiện tại (mặc định 1)' })
-     @ApiQuery({ name: 'pageSize', required: false, type: Number, description: 'Số lượng món/trang (mặc định 10)' })
-     async searchFoods(
-       @Query('text') text: string,
-       @Query('pageIndex') pageIndex?: number,
-       @Query('pageSize') pageSize?: number
-     ) {
-       if (!text) throw new BadRequestException('Vui lòng nhập từ khóa tìm kiếm');
-       return this.foodsService.searchFoods(text, { pageIndex, pageSize });
-     }
-     
-  
-  //Lấy thông tin món ăn bằng id
+  // ✅ API lấy thông tin món ăn theo ID
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @Get(':id')
-  @ResponseMessage('Lấy thông tin món ăn thành công')
   async getFood(@Param('id') id: string) {
+    console.log('[Controller] Received ID:', id);
     return this.foodsService.getFoodById(id);
   }
 
@@ -76,11 +87,14 @@ export class FoodsController {
     return this.foodsService.getRandomFoods(code);
   }
 
- // Lấy món ăn theo id nhà hàng
+  // Lấy món ăn theo id nhà hàng
   @Get('restaurant/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  async getFoodsByRestaurant(@Param('id') id: string, @Query() query: { pageIndex?: number; pageSize?: number; }) {
+  async getFoodsByRestaurant(
+    @Param('id') id: string,
+    @Query() query: { pageIndex?: number; pageSize?: number },
+  ) {
     return this.foodsService.getFoodsByRestaurant(id, query);
   }
 
@@ -89,10 +103,13 @@ export class FoodsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiParam({ name: 'code', required: true })
-  async getFoodsByCategoryAndCode(@Param('category') category: string, @Param('code') code: string, @Query() query: { pageIndex?: number; pageSize?: number }) {
-    return this.foodsService.getFoodsByCategoryAndCode(category,code, query);
+  async getFoodsByCategoryAndCode(
+    @Param('category') category: string,
+    @Param('code') code: string,
+    @Query() query: { pageIndex?: number; pageSize?: number },
+  ) {
+    return this.foodsService.getFoodsByCategoryAndCode(category, code, query);
   }
-
 
   //Cập nhật món ăn
   @Put(':id')
@@ -101,7 +118,7 @@ export class FoodsController {
   @ResponseMessage('Cập nhật món ăn thành công')
   async updateFood(
     @Param('id') id: string,
-    @Body() updateFoodDto: UpdateFoodDto
+    @Body() updateFoodDto: UpdateFoodDto,
   ) {
     return this.foodsService.updateFood(id, updateFoodDto);
   }
@@ -116,13 +133,14 @@ export class FoodsController {
     return this.foodsService.deleteFood(id);
   }
 
-
-// Lấy món ăn ngẫu nhiên bởi danh mục và code
-@Get('random/:category/:code')
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth('JWT-auth')
-async getRandomFoodsByCategoryAndCode(@Param('category') category: string, @Param('code') code: string) {
-  return this.foodsService.getRandomFoodsByCategoryAndCode(category, code);
+  // Lấy món ăn ngẫu nhiên bởi danh mục và code
+  @Get('random/:category/:code')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  async getRandomFoodsByCategoryAndCode(
+    @Param('category') category: string,
+    @Param('code') code: string,
+  ) {
+    return this.foodsService.getRandomFoodsByCategoryAndCode(category, code);
   }
-
 }
