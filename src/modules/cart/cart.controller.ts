@@ -20,13 +20,12 @@ export class CartController {
   @Post('add')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({
-    summary: 'Thêm giỏ hàng',
-  })
+  @ApiOperation({ summary: 'Thêm vào giỏ hàng (Food hoặc Drink)' })
   async addToCart(@Body() addToCartDto: AddToCartDto, @Request() req) {
     const userId = req.user.id; // Lấy userId từ token JWT
     return this.cartService.addToCart(userId, addToCartDto);
   }
+  
 
   @Delete('remove')
   @UseGuards(JwtAuthGuard)

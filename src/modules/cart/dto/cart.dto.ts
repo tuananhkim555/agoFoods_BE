@@ -1,22 +1,28 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 // Thêm mục v vào giỏ hàng
 export class AddToCartDto {
   @ApiProperty()
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  foodId: string;
+  foodId?: string;
 
   @ApiProperty()
-  @IsNotEmpty()
+  @IsOptional()
+  @IsString()
+  drinkId?: string;
+
+  @ApiProperty()
   @IsNumber()
+  @Min(1)
   quantity: number;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsArray()
   @IsString({ each: true })
-  additiveIds?: string[]; // Danh sách ID của các thành phần thêm (nếu có)
+  additiveIds?: string[];
 }
 
 // Xóa mục khỏi giỏ hàng

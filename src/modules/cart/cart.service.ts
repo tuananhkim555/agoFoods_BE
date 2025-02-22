@@ -9,30 +9,46 @@ import { generateCartId } from 'src/common/utils/format-id';
 export class CartService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Thêm mục vào giỏ hàng
   async addToCart(userId: string, addToCartDto: AddToCartDto) {
-    const { foodId, quantity, additiveIds } = addToCartDto;
+    const { foodId, drinkId, quantity, additiveIds } = addToCartDto;
   
     try {
-      // Kiểm tra sự tồn tại của món ăn
-      const food = await this.prisma.food.findUnique({
-        where: { id: foodId },
-        include: {
-          additives: true, // Bao gồm thông tin phụ gia
-        },
-      });
-  
-      if (!food) {
-        throw new HttpException('Food not found', HttpStatus.NOT_FOUND);
+      // Kiểm tra dữ liệu hợp lệ
+      if (!foodId && !drinkId) {
+        throw new HttpException('FoodId hoặc DrinkId là bắt buộc', HttpStatus.BAD_REQUEST);
+      }
+      if (foodId && drinkId) {
+        throw new HttpException('Chỉ được thêm một loại sản phẩm (Food hoặc Drink)', HttpStatus.BAD_REQUEST);
       }
   
-      // Kiểm tra sự tồn tại của phụ gia (nếu có)
-      let selectedAdditives: { id: string; createdAt: Date; updatedAt: Date; title: string; price: number; }[] = [];      if (additiveIds && additiveIds.length > 0) {
+      let item: { 
+        id: string; 
+        price: number; 
+        additives: { id: string; price: number; title: string }[] 
+      } | null = null;
+      
+      if (foodId) {
+        item = await this.prisma.food.findUnique({
+          where: { id: foodId },
+          include: { additives: true },
+        });
+      } else if (drinkId) {
+        item = await this.prisma.drink.findUnique({
+          where: { id: drinkId },
+          include: { additives: true },
+        });
+      }
+  
+      if (!item) {
+        throw new HttpException(`${foodId ? 'Food' : 'Drink'} not found`, HttpStatus.NOT_FOUND);
+      }
+  
+      // Kiểm tra phụ gia (nếu có)
+      let selectedAdditives: { id: string; createdAt: Date; updatedAt: Date; title: string; price: number; }[] = [];
+      if (additiveIds && additiveIds.length > 0) {
         selectedAdditives = await this.prisma.additives.findMany({
-          where: {
-            id: {
-              in: additiveIds,
-            },
-          },
+          where: { id: { in: additiveIds } },
         });
   
         if (selectedAdditives.length !== additiveIds.length) {
@@ -40,86 +56,76 @@ export class CartService {
         }
       }
   
-      // Tính toán tổng giá
-      const basePrice = food.price * quantity;
+      // Tính giá tiền
+      const basePrice = item.price * quantity;
       const additivesPrice = selectedAdditives.reduce((sum, additive) => sum + additive.price * quantity, 0);
       const totalPrice = basePrice + additivesPrice;
   
-      // Kiểm tra xem mục này đã tồn tại trong giỏ hàng chưa
+      // Kiểm tra xem đã có sản phẩm này trong giỏ hàng chưa
       const existingCartItem = await this.prisma.cartItem.findFirst({
         where: {
           userId,
-          foodId,
+          foodId: foodId || undefined,
+          drinkId: drinkId || undefined,
           additives: {
             every: {
-              id: {
-                in: additiveIds || [],
-              },
+              id: { in: additiveIds || [] },
             },
           },
         },
       });
   
       if (existingCartItem) {
-        // Nếu mục đã tồn tại, tăng số lượng
+        // Nếu đã có, cập nhật số lượng
         const updatedCartItem = await this.prisma.cartItem.update({
           where: { id: existingCartItem.id },
           data: {
-            quantity: {
-              increment: quantity,
-            },
-            totalPrice: {
-              increment: totalPrice,
-            },
+            quantity: { increment: quantity },
+            totalPrice: { increment: totalPrice },
           },
         });
-
   
         return {
-          message: `Increased quantity of food ${foodId} by ${quantity}. New quantity: ${updatedCartItem.quantity}`,
-          
+          message: `Increased quantity of ${foodId ? 'food' : 'drink'} ${foodId || drinkId} by ${quantity}. New quantity: ${updatedCartItem.quantity}`,
         };
       } else {
+        // Nếu chưa có, thêm mới
         const cartId = await generateCartId(this.prisma);
-
-        // Nếu mục chưa tồn tại, tạo mới
+  
         const newCartItem = await this.prisma.cartItem.create({
           data: {
             id: cartId,
             userId,
-            foodId,
+            foodId: foodId || null,
+            drinkId: drinkId || null,
             quantity,
             totalPrice,
             additives: {
-              connect: selectedAdditives.map(additive => ({ id: additive.id, title: additive.title, price: additive.price })),
+              connect: selectedAdditives.map(additive => ({ id: additive.id })),
             },
           },
         });
   
         return {
           id: cartId,
-            userId,
-            foodId,
-            quantity,
-            totalPrice,
-            additives: {
-              connect: selectedAdditives.map(additive => ({ id: additive.id, title: additive.title, price: additive.price })),
-            },
-          message: `Added food ${foodId} to cart with quantity ${quantity}.`,
-          
+          userId,
+          foodId,
+          drinkId,
+          quantity,
+          totalPrice,
+          additives: selectedAdditives.map(additive => ({ id: additive.id, title: additive.title, price: additive.price })),
+          message: `Added ${foodId ? 'food' : 'drink'} ${foodId || drinkId} to cart with quantity ${quantity}.`,
         };
       }
     } catch (error) {
       console.error('Error adding to cart:', error);
-  
       if (error instanceof HttpException) {
         throw error;
       }
-  
       throw new HttpException('Internal Server Error', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
-
+  
   // Xóa mục khỏi giỏ hàng
   async removeCartItem(userId: string, removeCartItemDto: RemoveCartItemDto) {
     const { cartItemId } = removeCartItemDto;
@@ -164,188 +170,236 @@ export class CartService {
     }
   }
 
-  // Lấy thông tin giỏ hàng của người dùng
-  async getCart(userId: string) {
-    try {
-      // Lấy tất cả các mục trong giỏ hàng của người dùng
-      const cartItems = await this.prisma.cartItem.findMany({
-        where: { userId },
-        include: {
-          food: true, // Bao gồm thông tin món ăn liên quan
-          additives: true, // Bao gồm thông tin thành phần thêm
-        },
-      });
-
-      if (!cartItems || cartItems.length === 0) {
-        throw new HttpException('Không tìm thấy mặt hàng nào trong giỏ hàng', HttpStatus.NOT_FOUND);
-      }
-
-      return cartItems;
-    } catch (error) {
-      console.error('Error fetching cart:', error);
-
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      throw new HttpException('Internal Server Error', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+// Lấy thông tin giỏ hàng của người dùng
+async getCart(userId: string) {
+  if (!userId) {
+    throw new HttpException('User ID is required', HttpStatus.BAD_REQUEST
+    );
   }
+  try {
+    const cartItems = await this.prisma.cartItem.findMany({
+      where: { userId },
+      include: {
+        food: true, // Bao gồm thông tin món ăn
+        drink: true, // Bao gồm thông tin đồ uống
+        additives: true, // Bao gồm thông tin thành phần thêm
+      },
+    });
 
-  // Lấy số lượng mục trong giỏ hàng
-  async getCartCount(userId: string) {
-    try {
-      // Kiểm tra sự tồn tại của người dùng
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-      });
-
-      if (!user) {
-        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-      }
-
-      // Đếm số lượng mục trong giỏ hàng của người dùng
-      const cartItemCount = await this.prisma.cartItem.count({
-        where: { userId },
-      });
-
-      return { count: cartItemCount };
-    } catch (error) {
-      console.error('Error fetching cart count:', error);
-
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      throw new HttpException('Internal Server Error', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    return { items: cartItems };
+  } catch (error) {
+    console.error('Error fetching cart:', error);
+    throw new HttpException('Lỗi hệ thống', HttpStatus.INTERNAL_SERVER_ERROR);
   }
+}
 
 
-  // Tăng số lượng môn ăn trong giỏ hàng
-  async incrementCartItem(incrementCartItemDto: IncrementCartItemDto) {
-    const { cartItemId, quantity } = incrementCartItemDto;
-  
-    try {
-      // Tìm mục trong giỏ hàng và bao gồm thông tin món ăn và phụ gia
-      const cartItem = await this.prisma.cartItem.findUnique({
-        where: { id: cartItemId },
-        include: {
-          food: true, // Bao gồm thông tin món ăn
-          additives: true, // Bao gồm thông tin phụ gia
-        },
-      });
-  
-      if (!cartItem) {
-        throw new HttpException('Cart item not found', HttpStatus.NOT_FOUND);
-      }
-  
-      // Tính toán số lượng mới
-      const newQuantity = cartItem.quantity + quantity;
-  
-      // Tính toán giá phụ gia
-      const additivesPrice = cartItem.additives?.reduce(
-        (sum, additive) => sum + additive.price,
-        0
-      ) || 0; // Đảm bảo trả về 0 nếu không có phụ gia
-  
-      // Tính toán tổng giá mới
-      const basePrice = cartItem.food.price + additivesPrice; // Giá cơ bản + giá phụ gia
-      const newTotalPrice = basePrice * newQuantity;
-  
-      // Cập nhật số lượng và tổng giá trong giỏ hàng
-      const updatedCartItem = await this.prisma.cartItem.update({
-        where: { id: cartItemId },
-        data: {
-          quantity: newQuantity,
-          totalPrice: newTotalPrice,
-        },
-      });
-  
-      return {
-        message: `Increased quantity of cart item ${cartItemId} by ${quantity}. New quantity: ${updatedCartItem.quantity}, New total price: ${updatedCartItem.totalPrice}`,
-      };
-    } catch (error) {
-      console.error('Error incrementing cart item:', error);
-  
-      if (error instanceof HttpException) {
-        throw error;
-      }
-  
-      throw new HttpException('Internal Server Error', HttpStatus.INTERNAL_SERVER_ERROR);
+// Lấy số lượng mục trong giỏ hàng
+async getCartCount(userId: string) {
+  try {
+    // Kiểm tra sự tồn tại của người dùng
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      console.warn(`⚠️ User ID ${userId} not found.`);
+      throw new HttpException('Người dùng không tồn tại', HttpStatus.NOT_FOUND);
     }
-  }
 
-  async decrementCartItemQuantity(decrementCartItemQuantityDto: DecrementCartItemQuantityDto) {
-    const { cartItemId, quantity } = decrementCartItemQuantityDto;
-  
-    try {
-      // Tìm mục trong giỏ hàng
-      const cartItem = await this.prisma.cartItem.findUnique({
-        where: { id: cartItemId },
-        include: {
-          food: true, // Bao gồm thông tin món ăn
-          additives: true, // Bao gồm thông tin phụ gia
-        },
-      });
-  
-      if (!cartItem) {
-        throw new HttpException('Cart item not found', HttpStatus.NOT_FOUND);
-      }
-  
-      // Kiểm tra quantity không vượt quá số lượng hiện tại
-      if (quantity > cartItem.quantity) {
-        throw new HttpException('Quantity to decrement exceeds current quantity', HttpStatus.BAD_REQUEST);
-      }
-  
-      // Tính toán số lượng mới
-      const newQuantity = cartItem.quantity - quantity;
-  
-      if (newQuantity <= 0) {
-        // Xóa mục khỏi giỏ hàng nếu số lượng nhỏ hơn hoặc bằng 0
-        await this.prisma.cartItem.delete({
-          where: { id: cartItemId },
-        });
-        return { message: 'Cart item removed successfully.' };
-      }
-  
-      // Tính toán tổng giá mới
-      const basePrice = cartItem.food.price * newQuantity; // Giá cơ bản
-      const additivesPrice = cartItem.additives?.reduce(
+    // Đếm số lượng mục trong giỏ hàng của người dùng
+    const cartItemCount = await this.prisma.cartItem.count({
+      where: { userId },
+    });
+
+    // Nếu giỏ hàng trống, trả về 204 (No Content)
+    if (cartItemCount === 0) {
+      console.info(`ℹ️ User ID ${userId} has an empty cart.`);
+      throw new HttpException('Giỏ hàng trống', HttpStatus.NO_CONTENT);
+    }
+
+    return { count: cartItemCount };
+  } catch (error) {
+    console.error(`❌ Error fetching cart count for user ID ${userId}:`, error);
+
+    if (error instanceof HttpException) {
+      throw error;
+    }
+
+    throw new HttpException('Lỗi hệ thống, vui lòng thử lại sau', HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+}
+
+
+ // Tăng số lượng món ăn hoặc đồ uống trong giỏ hàng
+async incrementCartItem(incrementCartItemDto: IncrementCartItemDto) {
+  const { cartItemId, quantity } = incrementCartItemDto;
+
+  try {
+    // Kiểm tra input hợp lệ
+    if (quantity <= 0) {
+      throw new HttpException(
+        'Số lượng phải lớn hơn 0',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Tìm mục trong giỏ hàng và lấy thông tin liên quan
+    const cartItem = await this.prisma.cartItem.findUnique({
+      where: { id: cartItemId },
+      include: {
+        food: true, // Bao gồm thông tin món ăn
+        additives: true, // Bao gồm thông tin phụ gia
+      },
+    });
+
+    if (!cartItem) {
+      console.warn(`⚠️ Cart item ID ${cartItemId} not found.`);
+      throw new HttpException(
+        'Không tìm thấy mục trong giỏ hàng',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Tính toán số lượng mới
+    const newQuantity = cartItem.quantity + quantity;
+
+    // Giới hạn số lượng tối đa (ví dụ: 100)
+    if (newQuantity > 100) {
+      throw new HttpException(
+        'Số lượng không được vượt quá 100',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Tính toán giá phụ gia (nếu có)
+    const additivesPrice =
+      cartItem.additives?.reduce((sum, additive) => sum + additive.price, 0) || 0;
+
+    // Tính toán tổng giá mới
+    const basePrice = (cartItem.food?.price || 0) + additivesPrice;
+    const newTotalPrice = basePrice * newQuantity;
+
+    // Cập nhật số lượng và tổng giá trong giỏ hàng
+    const updatedCartItem = await this.prisma.cartItem.update({
+      where: { id: cartItemId },
+      data: {
+        quantity: newQuantity,
+        totalPrice: newTotalPrice,
+      },
+    });
+
+    console.info(
+      `✅ Cart item ${cartItemId} updated: New quantity = ${updatedCartItem.quantity}, New total price = ${updatedCartItem.totalPrice}`,
+    );
+
+    return {
+      message: `Tăng số lượng mục ${cartItemId} thêm ${quantity}. Số lượng mới: ${updatedCartItem.quantity}, Tổng giá mới: ${updatedCartItem.totalPrice}`,
+    };
+  } catch (error) {
+    console.error(`❌ Error incrementing cart item ${cartItemId}:`, error);
+
+    if (error instanceof HttpException) {
+      throw error;
+    }
+
+    throw new HttpException(
+      'Lỗi hệ thống, vui lòng thử lại sau',
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
+}
+
+
+// Giảm số lượng món ăn hoặc đồ uống trong giỏ hàng
+async decrementCartItemQuantity(
+  decrementCartItemQuantityDto: DecrementCartItemQuantityDto,
+) {
+  const { cartItemId, quantity } = decrementCartItemQuantityDto;
+
+  try {
+    // Kiểm tra input hợp lệ
+    if (quantity <= 0) {
+      throw new HttpException(
+        'Số lượng giảm phải lớn hơn 0',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Tìm mục trong giỏ hàng
+    const cartItem = await this.prisma.cartItem.findUnique({
+      where: { id: cartItemId },
+      include: {
+        food: true, // Bao gồm thông tin món ăn
+        additives: true, // Bao gồm thông tin phụ gia
+      },
+    });
+
+    if (!cartItem) {
+      console.warn(`⚠️ Cart item ID ${cartItemId} not found.`);
+      throw new HttpException(
+        'Không tìm thấy mục trong giỏ hàng',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Kiểm tra nếu quantity cần giảm lớn hơn số lượng hiện tại
+    if (quantity > cartItem.quantity) {
+      throw new HttpException(
+        `Không thể giảm ${quantity} vì chỉ có ${cartItem.quantity} trong giỏ hàng`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Tính toán số lượng mới
+    const newQuantity = cartItem.quantity - quantity;
+
+    // Nếu số lượng mới <= 0, xóa mục khỏi giỏ hàng
+    if (newQuantity <= 0) {
+      await this.prisma.cartItem.delete({ where: { id: cartItemId } });
+      console.info(`🗑️ Removed cart item ${cartItemId} as quantity reached 0.`);
+      return { message: `Đã xóa mục ${cartItemId} khỏi giỏ hàng.` };
+    }
+
+    // Tính toán tổng giá mới
+    const basePrice = (cartItem.food?.price || 0) * newQuantity;
+    const additivesPrice =
+      cartItem.additives?.reduce(
         (sum, additive) => sum + additive.price * newQuantity,
-        0
-      ) || 0; // Đảm bảo trả về 0 nếu additives rỗng
-      const newTotalPrice = basePrice + additivesPrice;
-  
-      // Log chi tiết
-      console.log('Current cart item:', cartItem);
-      console.log('New quantity:', newQuantity);
-      console.log('Base price:', basePrice);
-      console.log('Additives price:', additivesPrice);
-      console.log('New total price:', newTotalPrice);
-  
-      // Cập nhật số lượng và tổng giá
-      const updatedCartItem = await this.prisma.cartItem.update({
-        where: { id: cartItemId },
-        data: {
-          quantity: newQuantity,
-          totalPrice: newTotalPrice,
-        },
-      });
-  
-      return {
-        message: `Decremented ${quantity} units of cart item ${cartItemId}. New quantity: ${updatedCartItem.quantity}, New total price: ${updatedCartItem.totalPrice}`,
-      };
-    } catch (error) {
-      console.error('Error decrementing cart item quantity:', error);
-  
-      if (error instanceof HttpException) {
-        throw error;
-      }
-  
-      throw new HttpException('Internal Server Error', HttpStatus.INTERNAL_SERVER_ERROR);
+        0,
+      ) || 0;
+    const newTotalPrice = basePrice + additivesPrice;
+
+    // Cập nhật số lượng và tổng giá
+    const updatedCartItem = await this.prisma.cartItem.update({
+      where: { id: cartItemId },
+      data: {
+        quantity: newQuantity,
+        totalPrice: newTotalPrice,
+      },
+    });
+
+    console.info(
+      `✅ Updated cart item ${cartItemId}: New quantity = ${updatedCartItem.quantity}, New total price = ${updatedCartItem.totalPrice}`,
+    );
+
+    return {
+      message: `Giảm ${quantity} mục ${cartItemId}. Số lượng mới: ${updatedCartItem.quantity}, Tổng giá mới: ${updatedCartItem.totalPrice}`,
+    };
+  } catch (error) {
+    console.error(`❌ Lỗi khi giảm số lượng mục ${cartItemId}:`, error);
+
+    if (error instanceof HttpException) {
+      throw error;
     }
+
+    throw new HttpException(
+      'Lỗi hệ thống, vui lòng thử lại sau',
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
   }
+}
+
 
   // Xóa toàn bộ giỏ hàng
   async clearCart(userId: string) {
