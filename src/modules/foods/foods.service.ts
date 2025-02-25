@@ -301,6 +301,54 @@ export class FoodsService {
     }
   }
 
+  // Lấy tất cả danh sách món ăn bằng code
+  async getFoodsByCode(code: string, query: any) {
+    let { pageIndex, pageSize, skip = 0, take = 10, restaurantId } = query;
+
+    pageIndex = +pageIndex > 0 ? +pageIndex : 1;
+    pageSize = +pageSize > 0 ? +pageSize : 3;
+
+    skip = (pageIndex - 1) * pageSize;
+    const totalItems = await this.prisma.food.count({
+      where: { restaurantId, isAvailable: true },
+    });
+    const totalPages = Math.ceil(totalItems / pageSize);
+
+    try {
+      const foods = await this.prisma.food.findMany({
+        where: { code },
+        include: {
+          category: true,
+          foodTags: true,
+          foodTypes: true,
+          additives: true,
+        },
+      });
+
+      if (!foods.length) {
+        throw new NotFoundException('Không tìm thấy món ăn');
+      }
+
+      return {
+        pagination: {
+          pageIndex,
+          pageSize,
+          totalItems,
+          totalPages,
+        },
+        data: foods.map((food) => ({
+          ...food,
+          foodTags: JsonParser.safeJsonParse(food.foodTags),
+          foodTypes: JsonParser.safeJsonParse(food.foodTypes),
+          additives: JsonParser.safeJsonParse(food.additives),
+        })),
+      };
+    } catch (error) {
+      console.error('[getFoodsByCode] Error:', error);
+      throw new InternalServerErrorException('Lỗi hệ thống khi lấy môn ăn');
+    }
+      }
+
   // Lấy danh sách món ăn ngẫu nhiên
   async getRandomFoods(code: string) {
     try {
@@ -309,7 +357,7 @@ export class FoodsService {
           code,
           isAvailable: true,
         },
-        take: 5,
+        take: 7,
         orderBy: {
           rating: 'desc',
         },

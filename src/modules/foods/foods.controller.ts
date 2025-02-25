@@ -7,10 +7,6 @@ import {
   Put,
   Delete,
   Query,
-  UseInterceptors,
-  UploadedFile,
-  Req,
-  BadRequestException,
   Get,
 } from '@nestjs/common';
 import { FoodsService } from './foods.service';
@@ -24,7 +20,6 @@ import {
   ApiBearerAuth,
   ApiResponse,
   ApiParam,
-  ApiQuery,
 } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 
@@ -75,6 +70,15 @@ export class FoodsController {
     console.log('[Controller] Received ID:', id);
     return this.foodsService.getFoodById(id);
   }
+
+    // Lấy tất cả danh sách món ăn bằng code
+    @Public()
+    @Get('code/:code')
+    @ApiParam({ name: 'code', required: true })
+    @ResponseMessage('Lấy danh sách món ăn thành công')
+    async getFoodsByCode(@Param('code') code: string) {
+      return this.foodsService.getFoodsByCode(code, {});
+    }
 
   // Lấy Random danh sách món ăn
   @Get('random/:code')
