@@ -52,9 +52,10 @@ export class FoodsController {
   }
 
   // ✅ API tìm kiếm phải đặt trước
-   @UseGuards(JwtAuthGuard)
-   @ApiBearerAuth('JWT-auth')
-   @Get('search')
+  //  @UseGuards(JwtAuthGuard)
+  //  @ApiBearerAuth('JWT-auth')
+  @Public()
+   @Get('drinks/search')
    async searchAll(
      @Query('searchTerm') searchTerm: string,
    ) {

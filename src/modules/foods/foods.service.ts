@@ -231,8 +231,16 @@ export class FoodsService {
         },
         skip,
         take: pageSize,
+        include: {
+          additives: true,   // 👈 Lấy danh sách chất phụ gia
+          foodTags: true,    // 👈 Lấy danh sách thẻ món ăn
+          foodTypes: true,    // 👈 Lấy loại món ăn
+        },
       });
-
+      
+      
+      
+      // ✅ Đảm bảo foods luôn là một danh sách
       const drinks = await this.prisma.drink.findMany({
         where: {
           OR: [
@@ -242,22 +250,25 @@ export class FoodsService {
         },
         skip,
         take: pageSize,
+        include: {
+          drinkTags: true, // 👈 Lấy drinkTags của đồ uống
+          drinkTypes: true, // 👈 Lấy drinkTypes của đồ uống
+          additives: true, // 👈 Lấy additives của đồ uống
+        },
       });
-
-      // ✅ Tính tổng số tất cả môn ăn & đồ uống
-      const totalResults = totalFoods + totalDrinks;
-      const totalPages = Math.ceil(totalResults / pageSize);
-
+      
+      
+      // ✅ Nếu foods hoặc drinks bị `null`, thay thế bằng `[]`
       return {
-        foods,
-        drinks,
+        foods: foods ?? [],
+        drinks: drinks ?? [],
         pagination: {
           pageIndex,
           pageSize,
-          totalResults,
-          totalPages,
-        },
+          totalItems: totalFoods + totalDrinks,
+          totalPages: Math.ceil((totalFoods + totalDrinks) / pageSize),},
       };
+      
     } catch (error) {
       console.error('[searchAll] Error:', error);
       throw new InternalServerErrorException('Lỗi hệ thống khi tìm kiếm');
